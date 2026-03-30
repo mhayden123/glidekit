@@ -33,15 +33,33 @@
     background: var(--bg);
     color: var(--text);
     line-height: 1.5;
-    min-height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .container {
     max-width: 620px;
     margin: 0 auto;
-    padding: 40px 24px 40px;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 32px;
+    min-height: 0;
+  }
+  .scroll-area::-webkit-scrollbar { width: 5px; }
+  .scroll-area::-webkit-scrollbar-track { background: transparent; }
+  .scroll-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+  .footer {
+    flex-shrink: 0;
+    padding: 16px 0 24px;
   }
 
   /* Header */
@@ -362,93 +380,89 @@
 <body>
 
 <div class="container">
-  <div class="header">
-    <h1>OP Replay Clipper</h1>
-    <span class="badge">Local</span>
-  </div>
+  <div class="scroll-area">
+    <div class="header">
+      <h1>OP Replay Clipper</h1>
+      <span class="badge">Local</span>
+    </div>
 
-  <div class="warning-banner" id="warningBanner">
-    <span class="icon">&#9888;</span>
-    <span id="warningText"></span>
-  </div>
+    <div class="warning-banner" id="warningBanner">
+      <span class="icon">&#9888;</span>
+      <span id="warningText"></span>
+    </div>
 
-  <div class="card">
-    <div class="field">
-      <label>Download Source</label>
-      <div class="pills" id="downloadSourcePills">
-        <button class="pill active" data-value="connect">Comma Connect</button>
-        <button class="pill" data-value="ssh">Local SSH</button>
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label>Download Source</label>
+          <div class="pills" id="downloadSourcePills">
+            <button class="pill active" data-value="connect">Comma Connect</button>
+            <button class="pill" data-value="ssh">Local SSH</button>
+          </div>
+        </div>
+        <div class="field" id="jwtField">
+          <label for="jwtToken">JWT Token (optional)</label>
+          <input type="password" id="jwtToken" placeholder="For private routes" autocomplete="off">
+          <div class="hint">From jwt.comma.ai for non-public routes.</div>
+        </div>
+        <div class="field" id="deviceIpField" style="display:none;">
+          <label for="deviceIp">Device IP Address</label>
+          <input type="text" id="deviceIp" placeholder="e.g. 192.168.1.11" autocomplete="off" spellcheck="false">
+          <div class="hint">Your comma device on the local network.</div>
+        </div>
       </div>
-    </div>
 
-    <div class="field" id="deviceIpField" style="display:none;">
-      <label for="deviceIp">Device IP Address</label>
-      <input type="text" id="deviceIp" placeholder="e.g. 192.168.1.11 or 10.42.0.254" autocomplete="off" spellcheck="false">
-      <div class="hint">IP address of your comma device on the local network.</div>
-    </div>
-
-    <div class="field">
-      <label for="route">Route URL</label>
-      <input type="text" id="route" placeholder="https://connect.comma.ai/dongle/route/start/end" autocomplete="off" spellcheck="false">
-      <div class="hint" id="routeHint">Paste a connect.comma.ai URL with start/end times, or a pipe-delimited route ID.</div>
-    </div>
-
-    <div class="field">
-      <label>Render Type</label>
-      <div class="pills" id="renderTypePills">
-        <button class="pill active" data-value="ui" title="openpilot UI replay with path, lanes, and metadata overlay">UI</button>
-        <button class="pill" data-value="ui-alt" title="UI variant with steering wheel and confidence rail in footer">UI Alt</button>
-        <button class="pill" data-value="driver-debug" title="Driver camera with DM state, awareness, and pose telemetry">Driver Debug</button>
-        <button class="pill" data-value="forward" title="Forward camera only, no UI overlay. Fast render.">Forward</button>
-        <button class="pill" data-value="wide" title="Wide camera only, no UI overlay. Fast render.">Wide</button>
-        <button class="pill" data-value="driver" title="Driver camera only, no UI overlay. Fast render.">Driver</button>
-        <button class="pill" data-value="360" title="360 video from wide + driver cameras. View in VLC or YouTube.">360</button>
-        <button class="pill" data-value="forward_upon_wide" title="Forward projected onto wide using camera calibration">Fwd/Wide</button>
-        <button class="pill" data-value="360_forward_upon_wide" title="8K 360 with forward projected onto wide. Large output.">360 Fwd/Wide</button>
-      </div>
-      <div class="render-desc" id="renderTypeDesc">openpilot UI replay with path, lanes, and metadata overlay. Uses smear preroll.</div>
-    </div>
-
-    <div class="row">
       <div class="field">
-        <label for="fileSize">File Size (MB)</label>
-        <input type="number" id="fileSize" value="9" min="1" max="200">
-        <div class="hint">Target output size. Actual may vary.</div>
-        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer;color:var(--text);">
-          <input type="checkbox" id="noLimit" style="width:auto;accent-color:var(--accent);cursor:pointer;" onchange="toggleNoLimit(this.checked)">
-          No limit (max quality)
-        </label>
+        <label for="route">Route URL</label>
+        <input type="text" id="route" placeholder="https://connect.comma.ai/dongle/route/start/end" autocomplete="off" spellcheck="false">
+        <div class="hint" id="routeHint">Paste a connect.comma.ai URL with start/end times, or a pipe-delimited route ID.</div>
       </div>
+
       <div class="field">
-        <label for="fileFormat">File Format</label>
-        <select id="fileFormat">
-          <option value="auto" selected>Auto</option>
-          <option value="h264">H.264 (compatible)</option>
-          <option value="hevc">HEVC (smaller)</option>
-        </select>
-        <div class="hint">Auto uses HEVC for 360, H.264 otherwise.</div>
+        <label>Render Type</label>
+        <div class="pills" id="renderTypePills">
+          <button class="pill active" data-value="ui" title="openpilot UI replay with path, lanes, and metadata overlay">UI</button>
+          <button class="pill" data-value="ui-alt" title="UI variant with steering wheel and confidence rail in footer">UI Alt</button>
+          <button class="pill" data-value="driver-debug" title="Driver camera with DM state, awareness, and pose telemetry">Driver Debug</button>
+          <button class="pill" data-value="forward" title="Forward camera only, no UI overlay. Fast render.">Forward</button>
+          <button class="pill" data-value="wide" title="Wide camera only, no UI overlay. Fast render.">Wide</button>
+          <button class="pill" data-value="driver" title="Driver camera only, no UI overlay. Fast render.">Driver</button>
+          <button class="pill" data-value="360" title="360 video from wide + driver cameras. View in VLC or YouTube.">360</button>
+          <button class="pill" data-value="forward_upon_wide" title="Forward projected onto wide using camera calibration">Fwd/Wide</button>
+          <button class="pill" data-value="360_forward_upon_wide" title="8K 360 with forward projected onto wide. Large output.">360 Fwd/Wide</button>
+        </div>
+        <div class="render-desc" id="renderTypeDesc">openpilot UI replay with path, lanes, and metadata overlay. Uses smear preroll.</div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="fileSize">File Size (MB)</label>
+          <input type="number" id="fileSize" value="9" min="1" max="200">
+          <div class="hint">Target output size. Actual may vary.</div>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer;color:var(--text);">
+            <input type="checkbox" id="noLimit" style="width:auto;accent-color:var(--accent);cursor:pointer;" onchange="toggleNoLimit(this.checked)">
+            No limit (max quality)
+          </label>
+        </div>
+        <div class="field">
+          <label for="fileFormat">File Format</label>
+          <select id="fileFormat">
+            <option value="auto" selected>Auto</option>
+            <option value="h264">H.264 (compatible)</option>
+            <option value="hevc">HEVC (smaller)</option>
+          </select>
+          <div class="hint">Auto uses HEVC for 360, H.264 otherwise.</div>
+        </div>
+      </div>
+
+      <div class="field smear-field visible" id="smearField">
+        <label for="smearSeconds">Smear Preroll (seconds)</label>
+        <input type="number" id="smearSeconds" value="3" min="3" max="40">
+        <div class="hint">Hidden preroll to initialize UI state before the clip starts.</div>
       </div>
     </div>
 
-    <div class="field smear-field visible" id="smearField">
-      <label for="smearSeconds">Smear Preroll (seconds)</label>
-      <input type="number" id="smearSeconds" value="3" min="3" max="40">
-      <div class="hint">Hidden preroll to initialize UI state before the clip starts.</div>
-    </div>
-
-    <div class="field" id="jwtField">
-      <label for="jwtToken">JWT Token (optional)</label>
-      <input type="password" id="jwtToken" placeholder="For private routes without Public Access" autocomplete="off">
-      <div class="hint">Get one from jwt.comma.ai. Not needed if Public Access is enabled.</div>
-    </div>
-  </div>
-
-  <button class="btn-render" id="btnRender" onclick="startRender()">
-    <span class="spinner" id="spinner"></span>
-    <span id="btnText">Start Render</span>
-  </button>
-
-  <div class="log-section" id="logSection">
+    <div class="log-section" id="logSection">
     <div class="card" style="margin-top: 16px;">
       <div class="log-header">
         <div class="pulse" id="logPulse"></div>
@@ -478,6 +492,14 @@
         Download MP4
       </a>
     </div>
+  </div>
+  </div><!-- end scroll-area -->
+
+  <div class="footer">
+    <button class="btn-render" id="btnRender" onclick="startRender()">
+      <span class="spinner" id="spinner"></span>
+      <span id="btnText">Start Render</span>
+    </button>
   </div>
 </div>
 
@@ -527,8 +549,8 @@
     pill.classList.add("active");
     currentDownloadSource = pill.dataset.value;
     const isSSH = currentDownloadSource === "ssh";
-    document.getElementById("deviceIpField").style.display = isSSH ? "block" : "none";
-    document.getElementById("jwtField").style.display = isSSH ? "none" : "block";
+    document.getElementById("deviceIpField").style.display = isSSH ? "" : "none";
+    document.getElementById("jwtField").style.display = isSSH ? "none" : "";
     document.getElementById("routeHint").textContent = isSSH
       ? "Paste a connect URL or route ID. The app will parse the ID and download the files directly via SSH."
       : "Paste a connect.comma.ai URL with start/end times, or a pipe-delimited route ID.";
