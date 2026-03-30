@@ -22,4 +22,8 @@ def default_image_openpilot_root() -> str:
 
 
 def default_local_openpilot_root() -> str:
-    return os.environ.get("OPENPILOT_LOCAL_ROOT", DEFAULT_LOCAL_OPENPILOT_ROOT)
+    if "OPENPILOT_LOCAL_ROOT" in os.environ:
+        return os.environ["OPENPILOT_LOCAL_ROOT"]
+    if "OPENPILOT_ROOT" in os.environ:
+        return os.environ["OPENPILOT_ROOT"]
+    return DEFAULT_LOCAL_OPENPILOT_ROOT

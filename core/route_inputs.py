@@ -245,6 +245,47 @@ def parseAbsoluteTimeUrl(
     return ParsedRouteOrURL(route_name, start_seconds, length_seconds)
 
 
+def parseRouteOnlyUrl(
+    route: str,
+    jwt_token: str = None,
+) -> ParsedRouteOrURL:
+    """Resolve full route duration from the comma API (no start/end in URL)."""
+    import requests
+
+    dongle_id = route.split("|", 1)[0]
+    # Use a wide time window to find the route
+    import time
+    end_ms = int(time.time() * 1000) + 86_400_000
+    api_url = f"https://api.comma.ai/v1/devices/{dongle_id}/routes_segments?end={end_ms}&start=0"
+
+    headers = {}
+    if jwt_token:
+        headers["Authorization"] = f"JWT {jwt_token}"
+    response = requests.get(api_url, headers=headers)
+    if response.status_code != 200:
+        raise ValueError(f"Failed to fetch route info (HTTP {response.status_code}). Is the route public or do you need a JWT token?")
+
+    matched_route = None
+    for route_info in response.json():
+        if route_info.get("fullname") == route:
+            matched_route = route_info
+            break
+
+    if matched_route is None:
+        if jwt_token:
+            raise ValueError("Route not found. Make sure you're using a correct JWT token from https://jwt.comma.ai .")
+        else:
+            raise ValueError(f"Route not found. Make sure Public Access is enabled on the route.")
+
+    route_start = matched_route["start_time_utc_millis"]
+    route_end = matched_route["end_time_utc_millis"]
+    length_seconds = (route_end - route_start) // 1000
+
+    print(f"Route: {route}")
+    print(f"Full route duration: {length_seconds} seconds")
+    return ParsedRouteOrURL(route, 0, length_seconds)
+
+
 def parseRouteOrUrl(
     route_or_url: str,
     start_seconds: int,
@@ -269,12 +310,12 @@ def parseRouteOrUrl(
     if not parsed_url.hostname == "connect.comma.ai":
         raise ValueError("Invalid hostname in URL")
 
-    # 2-segment: /dongle/route-name — no start/end times in URL
+    # 2-segment: /dongle/route-name — no start/end times in URL, render full route
     if len(url_parts) == 3:
         dongle_id = url_parts[1]
         segment_name = url_parts[2]
         route = f"{dongle_id}|{segment_name}"
-        return ParsedRouteOrURL(route, start_seconds, length_seconds)
+        return parseRouteOnlyUrl(route, jwt_token)
 
     # Check if the path has 3 parts
     if len(url_parts) == 4 and "-" not in url_parts[2]:
