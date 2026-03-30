@@ -158,20 +158,20 @@
   .row { display: flex; gap: 14px; }
   .row > .field { flex: 1; }
 
-  /* Pill selector */
+  /* Render type selector */
   .pills {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
   }
   .pill {
-    padding: 7px 14px;
-    font-size: 13px;
+    padding: 10px 16px;
+    font-size: 14px;
     font-weight: 500;
     font-family: inherit;
     border: 1px solid var(--border);
-    border-radius: 20px;
-    background: transparent;
+    border-radius: var(--radius-sm);
+    background: var(--bg);
     color: var(--text-muted);
     cursor: pointer;
     transition: all 0.15s;
