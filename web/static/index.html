@@ -373,6 +373,10 @@
         <label for="fileSize">File Size (MB)</label>
         <input type="number" id="fileSize" value="9" min="1" max="200">
         <div class="hint">Target output size. Actual may vary.</div>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer;color:var(--text);">
+          <input type="checkbox" id="noLimit" style="width:auto;accent-color:var(--accent);cursor:pointer;" onchange="toggleNoLimit(this.checked)">
+          No limit (max quality)
+        </label>
       </div>
       <div class="field">
         <label for="fileFormat">File Format</label>
@@ -491,6 +495,12 @@
     }
   });
 
+  function toggleNoLimit(checked) {
+    const fileSizeInput = document.getElementById("fileSize");
+    fileSizeInput.disabled = checked;
+    fileSizeInput.style.opacity = checked ? "0.4" : "1";
+  }
+
   function setRendering(active) {
     const btn = document.getElementById("btnRender");
     const spinner = document.getElementById("spinner");
@@ -545,7 +555,7 @@
     const body = {
       route: route,
       render_type: currentRenderType,
-      file_size_mb: parseInt(document.getElementById("fileSize").value) || 9,
+      file_size_mb: document.getElementById("noLimit").checked ? 0 : (parseInt(document.getElementById("fileSize").value) || 9),
       file_format: document.getElementById("fileFormat").value,
       smear_seconds: parseInt(document.getElementById("smearSeconds").value) || 3,
       jwt_token: document.getElementById("jwtToken").value.trim(),

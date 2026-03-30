@@ -198,8 +198,8 @@ async def create_clip(body: ClipRequestBody) -> dict[str, Any]:
             detail="Route must be a connect.comma.ai URL or a pipe-delimited route ID (e.g. dongle|route).",
         )
 
-    if not 1 <= body.file_size_mb <= 200:
-        raise HTTPException(status_code=422, detail="File size must be between 1 and 200 MB.")
+    if body.file_size_mb != 0 and not 1 <= body.file_size_mb <= 200:
+        raise HTTPException(status_code=422, detail="File size must be between 1 and 200 MB, or 0 for no limit.")
 
     if not await _docker_image_exists(CLIPPER_IMAGE):
         raise HTTPException(

@@ -205,6 +205,8 @@ def _forward_upon_wide_warp_chain(warp: ForwardUponWideWarp, *, source_stream_la
 
 
 def _target_bitrate(target_mb: int, length_seconds: int) -> int:
+    if target_mb <= 0:
+        return 0
     return target_mb * 8 * 1024 * 1024 // length_seconds
 
 
@@ -254,7 +256,24 @@ def select_video_acceleration(policy: AccelerationPolicy, file_format: OutputFor
     raise ValueError(f"Unsupported acceleration policy: {policy}")
 
 
+_INT32_MAX = 2_147_483_647
+
+
+def _quality_args(accel: VideoAcceleration) -> list[str]:
+    """Return quality-based encoding args (no bitrate limit)."""
+    if accel.name == "nvidia":
+        return ["-rc", "constqp", "-qp", "18"]
+    if accel.name == "videotoolbox":
+        return ["-q:v", "35"]
+    # cpu (libx264 / libx265)
+    return ["-crf", "18"]
+
+
 def _encoder_output_args(accel: VideoAcceleration, target_bps: int, output_path: str) -> list[str]:
+    if target_bps <= 0:
+        return [*accel.encoder_args, *_quality_args(accel), "-movflags", "+faststart", output_path]
+    target_bps = min(target_bps, _INT32_MAX)
+    bufsize = min(target_bps * 2, _INT32_MAX)
     return [
         *accel.encoder_args,
         "-b:v",
@@ -262,7 +281,7 @@ def _encoder_output_args(accel: VideoAcceleration, target_bps: int, output_path:
         "-maxrate",
         str(target_bps),
         "-bufsize",
-        str(target_bps * 2),
+        str(bufsize),
         "-movflags",
         "+faststart",
         output_path,

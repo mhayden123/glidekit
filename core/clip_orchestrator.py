@@ -115,6 +115,8 @@ def normalize_output_format(render_type: RenderType, requested_format: OutputFor
 
 
 def normalize_target_mb(target_mb: int, execution_context: ExecutionContext) -> int:
+    if target_mb == 0:
+        return 0
     if execution_context == "cog":
         return max(1, target_mb - 1)
     return max(1, target_mb)
