@@ -523,6 +523,7 @@
     </div>
 
     <div class="view-footer">
+      <div id="configError" style="display:none;padding:10px 14px;margin-bottom:12px;border-radius:8px;background:var(--red-bg);border:1px solid rgba(248,113,113,0.15);color:var(--red);font-size:13px;font-weight:500;text-align:center;"></div>
       <button class="btn-primary" id="btnRender" onclick="startRender()">
         <span id="btnText">Start Render</span>
       </button>
@@ -572,7 +573,10 @@
             <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;" id="clipFilename"></div>
             <div style="font-size:11px;color:var(--text-muted);opacity:0.7;word-break:break-all;" id="clipPathText"></div>
           </div>
-          <button onclick="copyClipPath()" style="flex-shrink:0;padding:6px 12px;font-size:12px;font-weight:500;font-family:inherit;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;" id="copyBtn">Copy Path</button>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button onclick="openClipFolder()" style="padding:6px 12px;font-size:12px;font-weight:500;font-family:inherit;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);border-radius:6px;color:var(--green);cursor:pointer;">Open Folder</button>
+            <button onclick="copyClipPath()" style="padding:6px 12px;font-size:12px;font-weight:500;font-family:inherit;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;" id="copyBtn">Copy Path</button>
+          </div>
         </div>
       </div>
     </div>
@@ -703,23 +707,31 @@
     box.scrollTop = box.scrollHeight;
   }
 
+  function showConfigError(msg) {
+    const el = document.getElementById("configError");
+    el.textContent = msg;
+    el.style.display = "block";
+    setTimeout(() => { el.style.display = "none"; }, 5000);
+  }
+
   // ===== Start render =====
   async function startRender() {
+    document.getElementById("configError").style.display = "none";
     const route = document.getElementById("route").value.trim();
     if (!route) {
-      alert("Please enter a route URL.");
+      showConfigError("Please enter a route URL.");
       document.getElementById("route").focus();
       return;
     }
     if (!route.startsWith("https://connect.comma.ai/") && !route.includes("|")) {
-      alert("Route should be a connect.comma.ai URL or a pipe-delimited route ID.");
+      showConfigError("Route should be a connect.comma.ai URL or a pipe-delimited route ID.");
       document.getElementById("route").focus();
       return;
     }
 
     const deviceIp = document.getElementById("deviceIp").value.trim();
     if (currentDownloadSource === "ssh" && !deviceIp) {
-      alert("Device IP address is required for SSH downloads.");
+      showConfigError("Device IP address is required for SSH downloads.");
       document.getElementById("deviceIp").focus();
       return;
     }
@@ -819,6 +831,12 @@
     back.style.display = "flex";
     back.className = "btn-secondary";
     document.getElementById("btnBackText").textContent = "New Render";
+  }
+
+  async function openClipFolder() {
+    try {
+      await fetch("/api/clip/" + window._clipJobId + "/open-folder", { method: "POST" });
+    } catch {}
   }
 
   function copyClipPath() {

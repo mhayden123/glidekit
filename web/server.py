@@ -309,4 +309,27 @@ async def clip_host_path(job_id: str) -> dict[str, str]:
     if job.state != JobState.done or not job.output_path:
         raise HTTPException(status_code=400, detail="Clip not ready")
     host_path = f"{SHARED_HOST_DIR}/{job_id}/output.mp4"
-    return {"path": host_path}
+    return {"path": host_path, "folder": f"{SHARED_HOST_DIR}/{job_id}"}
+
+
+@app.post("/api/clip/{job_id}/open-folder")
+async def open_clip_folder(job_id: str) -> dict[str, str]:
+    """Open the clip's containing folder on the host using nsenter."""
+    job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.state != JobState.done or not job.output_path:
+        raise HTTPException(status_code=400, detail="Clip not ready")
+
+    host_folder = f"{SHARED_HOST_DIR}/{job_id}"
+
+    # Use nsenter to run xdg-open on the host's PID 1 namespace
+    await asyncio.create_subprocess_exec(
+        "docker", "run", "--rm", "--privileged", "--pid=host",
+        "alpine:latest",
+        "nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--",
+        "xdg-open", host_folder,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    return {"status": "ok", "folder": host_folder}
