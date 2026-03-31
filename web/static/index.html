@@ -564,11 +564,27 @@
         <span class="icon">&#10003;</span>
         <span>Render Complete</span>
       </div>
-      <div class="result-banner error" id="errorBanner" style="display:none;">
-        <span class="icon">&#10007;</span>
-        <span id="errorText">Render Failed</span>
+
+      <!-- Clip Summary Card -->
+      <div id="clipSummary" style="display:none;margin-bottom:14px;">
+        <div style="display:flex;gap:1px;border-radius:8px;overflow:hidden;">
+          <div style="flex:1;padding:14px 16px;background:rgba(255,255,255,0.03);text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1.2;" id="summarySize">—</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">File Size</div>
+          </div>
+          <div style="flex:1;padding:14px 16px;background:rgba(255,255,255,0.03);text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1.2;" id="summaryDuration">—</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">Duration</div>
+          </div>
+          <div style="flex:1;padding:14px 16px;background:rgba(255,255,255,0.03);text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1.2;" id="summaryBitrate">—</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">Bitrate</div>
+          </div>
+        </div>
       </div>
-      <div id="downloadArea" style="display:none;">
+
+      <!-- File Location -->
+      <div id="downloadArea" style="display:none;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.12);border-radius:8px;">
           <svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="1.5" viewBox="0 0 24 24" style="flex-shrink:0;">
             <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
@@ -579,6 +595,11 @@
           </div>
           <button onclick="copyClipPath()" style="flex-shrink:0;padding:6px 12px;font-size:12px;font-weight:500;font-family:inherit;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;" id="copyBtn">Copy Path</button>
         </div>
+      </div>
+
+      <div class="result-banner error" id="errorBanner" style="display:none;">
+        <span class="icon">&#10007;</span>
+        <span id="errorText">Render Failed</span>
       </div>
     </div>
 
@@ -745,9 +766,13 @@
     document.getElementById("successBanner").style.display = "none";
     document.getElementById("errorBanner").style.display = "none";
     document.getElementById("downloadArea").style.display = "none";
-    document.getElementById("btnBack").style.display = "flex";
+    document.getElementById("clipSummary").style.display = "none";
+    window._lastProgress = {};
+    const back = document.getElementById("btnBack");
+    back.style.display = "flex";
+    back.style.background = "";
     document.getElementById("btnBackText").textContent = "Cancel";
-    document.getElementById("btnBack").className = "btn-secondary";
+    back.className = "btn-secondary";
   }
 
   function appendLog(text) {
@@ -832,6 +857,7 @@
     eventSource.addEventListener("progress", (e) => {
       try {
         const p = JSON.parse(e.data);
+        window._lastProgress = p;
         const stats = document.getElementById("progressStats");
         const parts = [];
         if (p.size_kb != null) parts.push("Size: " + formatSize(p.size_kb));
@@ -882,9 +908,26 @@
     area.style.display = "block";
     document.getElementById("successBanner").style.display = "flex";
 
+    // Populate summary card from last known progress stats
+    const summary = document.getElementById("clipSummary");
+    const lastProgress = window._lastProgress || {};
+    if (lastProgress.size_kb != null) {
+      const sizeMb = (lastProgress.size_kb / 1024).toFixed(1);
+      document.getElementById("summarySize").textContent = sizeMb + " MB";
+    }
+    if (lastProgress.time_seconds != null) {
+      const t = Math.round(lastProgress.time_seconds);
+      const m = Math.floor(t / 60);
+      const s = t % 60;
+      document.getElementById("summaryDuration").textContent = m > 0 ? m + "m " + s + "s" : s + "s";
+    }
+    if (lastProgress.bitrate_kbps != null) {
+      document.getElementById("summaryBitrate").textContent = (lastProgress.bitrate_kbps / 1000).toFixed(1) + " Mbps";
+    }
+    summary.style.display = "block";
+
     window._clipJobId = jobId;
     document.getElementById("downloadArea").style.display = "block";
-    // Fetch and display the file path automatically
     fetch("/api/clip/" + jobId + "/host-path")
       .then(r => r.json())
       .then(data => {
@@ -900,7 +943,8 @@
 
     const back = document.getElementById("btnBack");
     back.style.display = "flex";
-    back.className = "btn-secondary";
+    back.className = "btn-primary";
+    back.style.background = "var(--green)";
     document.getElementById("btnBackText").textContent = "New Render";
   }
 
