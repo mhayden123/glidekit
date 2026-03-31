@@ -346,7 +346,7 @@
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 11px;
     line-height: 1.7;
-    color: #7d8590;
+    color: #a8c7a0;
     box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
   }
   .terminal .line {
@@ -355,7 +355,7 @@
   }
   .terminal .line::before {
     content: "$ ";
-    color: rgba(255,255,255,0.1);
+    color: rgba(52, 211, 153, 0.3);
   }
   .terminal::-webkit-scrollbar { width: 4px; }
   .terminal::-webkit-scrollbar-track { background: transparent; }
@@ -696,8 +696,8 @@
     document.getElementById("errorBanner").style.display = "none";
     document.getElementById("videoWrapper").style.display = "none";
     document.getElementById("downloadLink").style.display = "none";
-    document.getElementById("btnBack").style.display = "none";
-    document.getElementById("btnBackText").textContent = "Back to Setup";
+    document.getElementById("btnBack").style.display = "flex";
+    document.getElementById("btnBackText").textContent = "Cancel";
     document.getElementById("btnBack").className = "btn-secondary";
   }
 
