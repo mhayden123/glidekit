@@ -563,12 +563,17 @@
         <span class="icon">&#10007;</span>
         <span id="errorText">Render Failed</span>
       </div>
-      <button class="btn-download" id="downloadLink" style="display:none;" onclick="downloadClip()">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-        </svg>
-        Download MP4
-      </button>
+      <div id="downloadArea" style="display:none;">
+        <button class="btn-download" onclick="showClipPath()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          <span id="downloadBtnText">Show File Location</span>
+        </button>
+        <div id="clipPathBox" style="display:none;margin-top:10px;padding:10px 14px;background:#060810;border-radius:6px;font-family:monospace;font-size:12px;color:var(--green);word-break:break-all;cursor:pointer;" onclick="copyClipPath()" title="Click to copy">
+          <span id="clipPathText"></span>
+        </div>
+      </div>
     </div>
 
     <div class="progress-footer">
@@ -682,7 +687,8 @@
     document.getElementById("resultArea").style.display = "none";
     document.getElementById("successBanner").style.display = "none";
     document.getElementById("errorBanner").style.display = "none";
-    document.getElementById("downloadLink").style.display = "none";
+    document.getElementById("downloadArea").style.display = "none";
+    document.getElementById("clipPathBox").style.display = "none";
     document.getElementById("btnBack").style.display = "flex";
     document.getElementById("btnBackText").textContent = "Cancel";
     document.getElementById("btnBack").className = "btn-secondary";
@@ -793,9 +799,10 @@
     area.style.display = "block";
     document.getElementById("successBanner").style.display = "flex";
 
-    window._clipDownloadUrl = "/api/clip/" + jobId + "/download";
-    window._clipFilename = "clip-" + jobId + ".mp4";
-    document.getElementById("downloadLink").style.display = "inline-flex";
+    window._clipJobId = jobId;
+    document.getElementById("downloadArea").style.display = "block";
+    document.getElementById("clipPathBox").style.display = "none";
+    document.getElementById("downloadBtnText").textContent = "Show File Location";
 
     const back = document.getElementById("btnBack");
     back.style.display = "flex";
@@ -803,8 +810,27 @@
     document.getElementById("btnBackText").textContent = "New Render";
   }
 
-  function downloadClip() {
-    window.location.href = window._clipDownloadUrl;
+  async function showClipPath() {
+    try {
+      const res = await fetch("/api/clip/" + window._clipJobId + "/host-path");
+      const data = await res.json();
+      document.getElementById("clipPathText").textContent = data.path;
+      document.getElementById("clipPathBox").style.display = "block";
+      document.getElementById("downloadBtnText").textContent = "File Location";
+    } catch {
+      document.getElementById("clipPathText").textContent = "Could not determine file path";
+      document.getElementById("clipPathBox").style.display = "block";
+    }
+  }
+
+  function copyClipPath() {
+    const path = document.getElementById("clipPathText").textContent;
+    navigator.clipboard.writeText(path).then(() => {
+      const el = document.getElementById("clipPathText");
+      const original = el.textContent;
+      el.textContent = "Copied!";
+      setTimeout(() => { el.textContent = original; }, 1500);
+    });
   }
 
   function onRenderFail(message) {
