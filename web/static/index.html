@@ -674,6 +674,7 @@
     document.getElementById("renderTypeDesc").textContent = RENDER_DESCS[currentRenderType] || "";
     const smearField = document.getElementById("smearField");
     smearField.classList.toggle("visible", SMEAR_TYPES.has(currentRenderType));
+    lastEstimateRoute = ""; fetchEstimate();
   });
 
   // ===== Route estimate =====
@@ -699,7 +700,7 @@
     fetch("/api/estimate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ route, file_size_mb: fileSizeMb, jwt_token: jwtToken, download_source: currentDownloadSource }),
+      body: JSON.stringify({ route, file_size_mb: fileSizeMb, render_type: currentRenderType, jwt_token: jwtToken, download_source: currentDownloadSource }),
     })
       .then(r => r.json())
       .then(data => {
@@ -711,11 +712,7 @@
         const mins = Math.floor(data.duration_seconds / 60);
         const secs = data.duration_seconds % 60;
         const dur = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        if (data.estimated_mb == null) {
-          box.textContent = `Route duration: ${dur} — Max quality (file size varies)`;
-        } else {
-          box.textContent = `Route duration: ${dur} — Estimated output: ~${data.estimated_mb} MB at ${data.bitrate_kbps} Kbps`;
-        }
+        box.textContent = `Route duration: ${dur} — Estimated output: ~${data.estimated_mb} MB`;
       })
       .catch(() => { box.style.display = "none"; });
   }

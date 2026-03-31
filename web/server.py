@@ -249,8 +249,24 @@ async def health() -> dict[str, Any]:
 class EstimateRequest(BaseModel):
     route: str
     file_size_mb: int = 9
+    render_type: str = "ui"
     jwt_token: str = ""
     download_source: str = "connect"
+
+
+# Approximate bitrate in Kbps at QP/CRF 10 per render type.
+# Based on typical openpilot video content characteristics.
+_MAX_QUALITY_BITRATE_KBPS: dict[str, int] = {
+    "ui": 40_000,            # 2160x2662 @ 20fps
+    "ui-alt": 40_000,
+    "driver-debug": 30_000,  # 1920x1720 @ 20fps
+    "forward": 20_000,       # 1344x760 @ 20fps
+    "wide": 20_000,
+    "driver": 15_000,
+    "360": 35_000,           # stitched wide+driver
+    "forward_upon_wide": 22_000,
+    "360_forward_upon_wide": 60_000,  # 8K output
+}
 
 
 def _resolve_route_duration(route_url: str, jwt_token: str = "") -> int | None:
@@ -317,7 +333,14 @@ async def estimate(body: EstimateRequest) -> dict[str, Any]:
         return {"duration_seconds": None, "estimated_mb": None, "bitrate_kbps": None}
 
     if body.file_size_mb <= 0:
-        return {"duration_seconds": duration, "estimated_mb": None, "bitrate_kbps": None, "note": "Max quality (file size varies)"}
+        approx_kbps = _MAX_QUALITY_BITRATE_KBPS.get(body.render_type, 25_000)
+        approx_mb = round(approx_kbps * duration / 8 / 1024, 1)
+        return {
+            "duration_seconds": duration,
+            "estimated_mb": approx_mb,
+            "bitrate_kbps": approx_kbps,
+            "note": f"~{approx_mb} MB (estimated for max quality)",
+        }
 
     bitrate_bps = body.file_size_mb * 8 * 1024 * 1024 // duration
     bitrate_kbps = round(bitrate_bps / 1000, 1)
