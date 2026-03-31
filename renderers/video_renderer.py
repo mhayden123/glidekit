@@ -262,11 +262,11 @@ _INT32_MAX = 2_147_483_647
 def _quality_args(accel: VideoAcceleration) -> list[str]:
     """Return quality-based encoding args (no bitrate limit)."""
     if accel.name == "nvidia":
-        return ["-rc", "constqp", "-qp", "18"]
+        return ["-rc", "constqp", "-qp", "10"]
     if accel.name == "videotoolbox":
-        return ["-q:v", "35"]
+        return ["-q:v", "20"]
     # cpu (libx264 / libx265)
-    return ["-crf", "18"]
+    return ["-crf", "10"]
 
 
 def _encoder_output_args(accel: VideoAcceleration, target_bps: int, output_path: str) -> list[str]:
