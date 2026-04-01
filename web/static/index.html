@@ -465,9 +465,14 @@
             <div class="hint">From jwt.comma.ai for non-public routes.</div>
           </div>
           <div class="field" id="deviceIpField" style="display:none;">
-            <label for="deviceIp">Device IP Address</label>
-            <input type="text" id="deviceIp" placeholder="e.g. 192.168.1.11" autocomplete="off" spellcheck="false">
-            <div class="hint">Your comma device on the local network.</div>
+            <label>Device</label>
+            <div style="display:flex;gap:8px;align-items:flex-start;">
+              <input type="text" id="deviceIp" placeholder="e.g. 192.168.1.11" autocomplete="off" spellcheck="false" style="flex:1;">
+              <button type="button" id="btnScan" onclick="scanDevices()" style="padding:10px 16px;font-size:13px;font-weight:500;font-family:inherit;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text-muted);cursor:pointer;white-space:nowrap;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-hover)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">Scan Network</button>
+            </div>
+            <input type="hidden" id="devicePort" value="22">
+            <div id="scanResults" style="display:none;margin-top:8px;"></div>
+            <div class="hint" id="deviceHint">Enter an IP or scan your network to find comma devices.</div>
           </div>
         </div>
 
@@ -652,6 +657,51 @@
     document.getElementById("warningBanner").classList.add("visible");
   }
 
+  // ===== Device scanning =====
+  async function scanDevices() {
+    const btn = document.getElementById("btnScan");
+    const resultsDiv = document.getElementById("scanResults");
+    const hint = document.getElementById("deviceHint");
+    btn.textContent = "Scanning\u2026";
+    btn.disabled = true;
+    resultsDiv.style.display = "none";
+    resultsDiv.innerHTML = "";
+    try {
+      const res = await fetch("/api/scan-devices");
+      const devices = await res.json();
+      if (devices.length === 0) {
+        hint.textContent = "No comma devices found on the local network.";
+      } else {
+        hint.textContent = devices.length + " device(s) found. Click to select.";
+        resultsDiv.style.display = "flex";
+        resultsDiv.style.flexWrap = "wrap";
+        resultsDiv.style.gap = "8px";
+        devices.forEach(d => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.textContent = d.ip + " (" + d.device_type + ")";
+          chip.style.cssText = "padding:8px 14px;font-size:13px;font-weight:500;font-family:inherit;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);cursor:pointer;transition:all 0.15s;";
+          chip.addEventListener("mouseover", () => { chip.style.borderColor = "var(--accent)"; chip.style.color = "var(--accent)"; });
+          chip.addEventListener("mouseout", () => { chip.style.borderColor = "var(--border)"; chip.style.color = "var(--text)"; });
+          chip.addEventListener("click", () => {
+            document.getElementById("deviceIp").value = d.ip;
+            document.getElementById("devicePort").value = d.port;
+            resultsDiv.querySelectorAll("button").forEach(b => { b.style.borderColor = "var(--border)"; b.style.background = "var(--bg)"; });
+            chip.style.borderColor = "var(--accent)";
+            chip.style.background = "rgba(59,130,246,0.08)";
+            hint.textContent = "Selected " + d.device_type + " at " + d.ip + ":" + d.port;
+          });
+          resultsDiv.appendChild(chip);
+        });
+      }
+    } catch (err) {
+      hint.textContent = "Scan failed: " + err.message;
+    } finally {
+      btn.textContent = "Scan Network";
+      btn.disabled = false;
+    }
+  }
+
   // ===== View swap =====
   function showView(id) {
     document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
@@ -684,6 +734,16 @@
     document.getElementById("routeHint").textContent = isSSH
       ? "Paste a connect URL or route ID. The app will parse the ID and download the files directly via SSH."
       : "Paste a connect.comma.ai URL with start/end times, or a pipe-delimited route ID.";
+    if (isSSH) {
+      document.getElementById("scanResults").style.display = "none";
+      document.getElementById("scanResults").innerHTML = "";
+      document.getElementById("deviceHint").textContent = "Enter an IP or scan your network to find comma devices.";
+    }
+  });
+
+  // Reset port to default when user manually edits the IP field.
+  document.getElementById("deviceIp").addEventListener("input", () => {
+    document.getElementById("devicePort").value = "22";
   });
 
   document.getElementById("renderTypePills").addEventListener("click", (e) => {
@@ -825,6 +885,7 @@
       jwt_token: document.getElementById("jwtToken").value.trim(),
       download_source: currentDownloadSource,
       device_ip: deviceIp,
+      device_port: parseInt(document.getElementById("devicePort").value) || 22,
     };
 
     try {

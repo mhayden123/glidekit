@@ -94,6 +94,7 @@ class ClipRequestBody(BaseModel):
     jwt_token: str = ""
     download_source: str = "connect"
     device_ip: str = ""
+    device_port: int = 22
 
 
 class JobResponse(BaseModel):
@@ -159,7 +160,7 @@ def _build_docker_cmd(job: Job, req: ClipRequestBody) -> list[str]:
         cmd.extend(["-j", req.jwt_token])
 
     if is_ssh:
-        cmd.extend(["--download-source", "ssh", "--device-ip", req.device_ip])
+        cmd.extend(["--download-source", "ssh", "--device-ip", req.device_ip, "--device-port", str(req.device_port)])
 
     return cmd
 
@@ -248,6 +249,15 @@ async def health() -> dict[str, Any]:
         "image": image_ok,
         "image_name": CLIPPER_IMAGE,
     }
+
+
+@app.get("/api/scan-devices")
+async def scan_devices() -> list[dict[str, Any]]:
+    """Scan the local network for comma devices reachable via SSH."""
+    from .device_scanner import scan_network
+
+    devices = await scan_network()
+    return [{"ip": d.ip, "port": d.port, "device_type": d.device_type} for d in devices]
 
 
 class EstimateRequest(BaseModel):

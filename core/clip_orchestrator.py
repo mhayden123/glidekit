@@ -63,6 +63,7 @@ class ClipRequest:
     skip_download: bool = False
     download_source: str = "connect"
     device_ip: str | None = None
+    device_port: int = 22
 
 
 DownloadSource = Literal["connect", "ssh"]
@@ -89,6 +90,7 @@ class ClipPlan:
     qcam: bool
     download_source: DownloadSource
     device_ip: str | None
+    device_port: int
 
 
 @dataclass(frozen=True)
@@ -190,6 +192,7 @@ def build_clip_plan(request: ClipRequest) -> ClipPlan:
         qcam=request.qcam,
         download_source=request.download_source,
         device_ip=request.device_ip,
+        device_port=request.device_port,
     )
 
 
@@ -209,6 +212,7 @@ def run_clip(request: ClipRequest) -> ClipResult:
                 data_dir=plan.data_dir,
                 file_types=list(plan.download_file_types),
                 device_ip=plan.device_ip,
+                device_port=plan.device_port,
                 decompress_logs=plan.decompress_logs,
             )
         else:
