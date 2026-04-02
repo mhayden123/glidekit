@@ -778,7 +778,7 @@
     ipInput.addEventListener("input", () => {
       clearTimeout(sshTestTimer);
       const val = ipInput.value.trim();
-      if (!val) { setSshStatus("", ""); return; }
+      if (!val) { currentSshPort = 22; setSshStatus("", ""); return; }
       sshTestTimer = setTimeout(testConnection, 800);
     });
   });
@@ -812,6 +812,7 @@
     const isSSH = currentDownloadSource === "ssh";
     document.getElementById("deviceIpField").style.display = isSSH ? "" : "none";
     document.getElementById("jwtField").style.display = isSSH ? "none" : "";
+    if (isSSH) { currentSshPort = 22; setSshStatus("", ""); }
     document.getElementById("routeHint").textContent = isSSH
       ? "Paste a connect URL or route ID. The app will parse the ID and download the files directly via SSH."
       : "Paste a connect.comma.ai URL with start/end times, or a pipe-delimited route ID.";
