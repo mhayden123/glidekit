@@ -499,8 +499,8 @@ async def create_clip(body: ClipRequestBody) -> dict[str, Any]:
             detail="Route must be a connect.comma.ai URL or a pipe-delimited route ID (e.g. dongle|route).",
         )
 
-    if body.file_size_mb != 0 and not 1 <= body.file_size_mb <= 200:
-        raise HTTPException(status_code=422, detail="File size must be between 1 and 200 MB, or 0 for no limit.")
+    if body.file_size_mb < 0:
+        raise HTTPException(status_code=422, detail="File size must be a positive number, or 0 for no limit.")
 
     if body.download_source not in ("connect", "ssh"):
         raise HTTPException(status_code=422, detail="Download source must be 'connect' or 'ssh'.")
