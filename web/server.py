@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import shutil
@@ -24,6 +25,8 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 app = FastAPI(title="OP Replay Clipper")
+log = logging.getLogger("clipper.scan")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
 CLIPPER_IMAGE = os.environ.get("CLIPPER_IMAGE", "op-replay-clipper-render")
 # Host path used for `docker run -v` mounts (must be a real host filesystem path).
@@ -251,8 +254,9 @@ def _detect_subnets() -> list[str]:
         host_ip = socket.gethostbyname("host.docker.internal")
         prefix = host_ip.rsplit(".", 1)[0] + "."
         bases.add(prefix)
+        log.info("host.docker.internal resolved to %s → subnet %s", host_ip, prefix)
     except socket.gaierror:
-        pass
+        log.info("host.docker.internal not available")
 
     # Linux: parse /proc/net/route for default gateway
     try:
@@ -265,6 +269,7 @@ def _detect_subnets() -> list[str]:
                     gw_ip = socket.inet_ntoa(gw_bytes)
                     prefix = gw_ip.rsplit(".", 1)[0] + "."
                     bases.add(prefix)
+                    log.info("Default gateway: %s → subnet %s", gw_ip, prefix)
                     break
     except (FileNotFoundError, ValueError):
         pass
@@ -277,9 +282,11 @@ def _detect_subnets() -> list[str]:
             if not ip.startswith("127.") and not ip.startswith("172."):
                 prefix = ip.rsplit(".", 1)[0] + "."
                 bases.add(prefix)
+                log.info("Interface IP: %s → subnet %s", ip, prefix)
     except socket.gaierror:
         pass
 
+    log.info("Subnets to scan: %s", list(bases))
     return list(bases) if bases else []
 
 
@@ -290,107 +297,54 @@ def _check_port(ip: str, port: int) -> dict[str, Any] | None:
             s.settimeout(_SCAN_TIMEOUT)
             banner = s.recv(256).decode("utf-8", errors="replace").strip()
             if "SSH" in banner.upper():
+                log.info("FOUND device at %s:%d — %s", ip, port, banner)
                 return {"ip": ip, "port": port, "device_type": _DEVICE_TYPE.get(port, "unknown"), "banner": banner}
     except (OSError, socket.timeout):
         pass
     return None
 
 
-# Inline Python script that runs on the host network to scan for SSH devices.
-_SCAN_SCRIPT = '''
-import socket, struct, json, sys
-from concurrent.futures import ThreadPoolExecutor
+def _scan_for_devices() -> dict[str, Any]:
+    """Scan LAN for comma devices using low concurrency for Docker NAT reliability."""
+    scan_log: list[str] = []
+    start_time = time.time()
 
-PORTS = [8022, 22]
-TIMEOUT = 1.0
-DEVICE_TYPE = {8022: "comma 3X", 22: "comma 4"}
-
-def detect_subnets():
-    bases = set()
-    try:
-        with open("/proc/net/route") as f:
-            for line in f:
-                fields = line.strip().split()
-                if len(fields) >= 3 and fields[1] == "00000000":
-                    gw = socket.inet_ntoa(struct.pack("<I", int(fields[2], 16)))
-                    bases.add(gw.rsplit(".", 1)[0] + ".")
-                    break
-    except Exception: pass
-    try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = info[4][0]
-            if not ip.startswith("127."):
-                bases.add(ip.rsplit(".", 1)[0] + ".")
-    except Exception: pass
-    return list(bases)
-
-def check(args):
-    ip, port = args
-    try:
-        with socket.create_connection((ip, port), timeout=TIMEOUT) as s:
-            s.settimeout(TIMEOUT)
-            banner = s.recv(256).decode("utf-8", errors="replace").strip()
-            if "SSH" in banner.upper():
-                return {"ip": ip, "port": port, "device_type": DEVICE_TYPE.get(port, "unknown"), "banner": banner}
-    except Exception: pass
-    return None
-
-subnets = detect_subnets()
-results = []
-for base in subnets:
-    targets = [(f"{base}{i}", p) for i in range(1, 255) for p in PORTS]
-    with ThreadPoolExecutor(max_workers=128) as pool:
-        for r in pool.map(check, targets):
-            if r: results.append(r)
-    if results: break
-
-print(json.dumps({"devices": results, "subnets_scanned": subnets}))
-'''
-
-
-def _scan_via_host_network() -> dict[str, Any]:
-    """Run the scan on the host network by spawning a container with --network host."""
-    import subprocess
-    try:
-        result = subprocess.run(
-            ["docker", "run", "--rm", "--network", "host",
-             "python:3.12-slim", "python3", "-c", _SCAN_SCRIPT],
-            capture_output=True, text=True, timeout=30,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return json.loads(result.stdout.strip())
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
-        pass
-    return {"devices": [], "subnets_scanned": [], "error": "Host network scan failed"}
-
-
-def _scan_local() -> dict[str, Any]:
-    """Scan directly from this process (works when running outside Docker)."""
     subnets = _detect_subnets()
+    scan_log.append(f"Detected subnets: {subnets}")
     if not subnets:
-        return {"devices": [], "subnets_scanned": [], "error": "Could not detect local network subnet."}
+        scan_log.append("ERROR: No subnets detected")
+        return {"devices": [], "subnets_scanned": [], "scan_log": scan_log,
+                "error": "Could not detect local network subnet."}
 
     devices: list[dict[str, Any]] = []
+
+    # Scan common DHCP range first (2-50), then the rest
+    ip_order = list(range(2, 51)) + list(range(51, 255)) + [1]
+
     for base in subnets:
-        targets = [(f"{base}{i}", port) for i in range(1, 255) for port in _SCAN_PORTS]
-        with ThreadPoolExecutor(max_workers=64) as pool:
-            for result in pool.map(lambda args: _check_port(*args), targets):
-                if result is not None:
-                    devices.append(result)
-        if devices:
-            break
+        batch_size = 4
+        for batch_start in range(0, len(ip_order), batch_size):
+            batch_ips = ip_order[batch_start:batch_start + batch_size]
+            targets = [(f"{base}{i}", port) for i in batch_ips for port in _SCAN_PORTS]
+            ip_range = f"{base}{batch_ips[0]}-{base}{batch_ips[-1]}"
+            log.info("Scanning batch: %s (%d targets)", ip_range, len(targets))
+            scan_log.append(f"Scanning {ip_range} ({len(targets)} targets)")
 
-    return {"devices": devices, "subnets_scanned": subnets}
+            with ThreadPoolExecutor(max_workers=batch_size * 2) as pool:
+                for result in pool.map(lambda args: _check_port(*args), targets):
+                    if result is not None:
+                        devices.append(result)
 
+            if devices:
+                elapsed = round(time.time() - start_time, 1)
+                scan_log.append(f"Found {len(devices)} device(s) in {elapsed}s")
+                log.info("Scan complete: found %d device(s) in %.1fs", len(devices), elapsed)
+                return {"devices": devices, "subnets_scanned": subnets, "scan_log": scan_log}
 
-def _is_running_in_docker() -> bool:
-    """Check if we're running inside a Docker container."""
-    try:
-        with open("/proc/1/cgroup") as f:
-            return "docker" in f.read()
-    except FileNotFoundError:
-        pass
-    return os.path.exists("/.dockerenv")
+    elapsed = round(time.time() - start_time, 1)
+    scan_log.append(f"Scan complete: no devices found ({elapsed}s)")
+    log.info("Scan complete: no devices found (%.1fs)", elapsed)
+    return {"devices": [], "subnets_scanned": subnets, "scan_log": scan_log}
 
 
 # ---------------------------------------------------------------------------
@@ -416,17 +370,9 @@ async def health() -> dict[str, Any]:
 
 @app.post("/api/scan-devices")
 async def scan_devices() -> dict[str, Any]:
-    """Scan the local network for comma devices with SSH enabled.
-
-    When running inside Docker, spawns a temporary container with --network host
-    for reliable LAN scanning. When running directly, scans from this process.
-    """
+    """Scan the local network for comma devices with SSH enabled."""
     loop = asyncio.get_event_loop()
-    if _is_running_in_docker():
-        data = await loop.run_in_executor(None, _scan_via_host_network)
-    else:
-        data = await loop.run_in_executor(None, _scan_local)
-    return data
+    return await loop.run_in_executor(None, _scan_for_devices)
 
 
 class TestSSHRequest(BaseModel):
