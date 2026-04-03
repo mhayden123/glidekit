@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OP Replay Clipper</title>
+<style>
+  :root {
+    --bg: #0c0e14;
+    --surface: #151820;
+    --surface-2: #1c2029;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.15);
+    --text: #e4e7ef;
+    --text-muted: #9CA3AF;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-glow: rgba(59, 130, 246, 0.12);
+    --green: #34d399;
+    --green-bg: rgba(52, 211, 153, 0.08);
+    --red: #f87171;
+    --red-bg: rgba(248, 113, 113, 0.08);
+    --yellow: #fbbf24;
+    --yellow-bg: rgba(251, 191, 36, 0.08);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* ===== View swap ===== */
+  .view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .view.hidden {
+    display: none;
+  }
+  .view.fade-out {
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+  }
+
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 32px;
+    padding-bottom: 8px;
+    min-height: 0;
+  }
+  .scroll-area::-webkit-scrollbar { width: 5px; }
+  .scroll-area::-webkit-scrollbar-track { background: transparent; }
+  .scroll-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+  .view-footer {
+    flex-shrink: 0;
+    padding: 16px 0 24px;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .header-icon { flex-shrink: 0; color: var(--accent); }
+  .header-text h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: #fff;
+    line-height: 1.2;
+  }
+  .header-text .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0.6;
+    margin-top: 2px;
+  }
+  .header .badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--green);
+    background: var(--green-bg);
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(52, 211, 153, 0.15);
+  }
+
+  /* ===== Warning banner ===== */
+  .warning-banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    border-radius: var(--radius-sm);
+    background: var(--yellow-bg);
+    border: 1px solid rgba(251, 191, 36, 0.15);
+    color: var(--yellow);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .warning-banner.visible { display: flex; }
+  .warning-banner .icon { font-size: 16px; flex-shrink: 0; }
+
+  /* ===== Card ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+  }
+
+  /* ===== Form ===== */
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .field { margin-bottom: 28px; }
+  .field:last-child { margin-bottom: 0; }
+  .hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    opacity: 0.65;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  select {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b90a0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  select option { background: var(--surface); color: var(--text); }
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  input::placeholder { color: var(--text-muted); opacity: 0.5; }
+
+  /* ===== SSH scan & status ===== */
+  .ip-input-wrap {
+    position: relative;
+  }
+  .ip-input-wrap input {
+    padding-right: 40px;
+  }
+  .btn-scan-icon {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+  }
+  .btn-scan-icon:hover { color: var(--accent); }
+  .btn-scan-icon.scanning { pointer-events: none; }
+  .btn-scan-icon .scan-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ssh-status {
+    font-size: 12px;
+    margin-top: 6px;
+    font-weight: 500;
+    min-height: 18px;
+  }
+  .ssh-status.success { color: var(--green); }
+  .ssh-status.error { color: var(--red); }
+  .ssh-status.scanning { color: var(--text-muted); opacity: 0.7; }
+
+  .row { display: flex; gap: 16px; }
+  .row > .field { flex: 1; min-width: 0; }
+
+  /* ===== Pills ===== */
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .pill:hover { border-color: var(--border-hover); color: var(--text); }
+  .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .render-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 10px;
+    min-height: 18px;
+    opacity: 0.75;
+  }
+
+  .smear-field { display: none; }
+  .smear-field.visible { display: block; }
+
+  /* ===== Action buttons ===== */
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.2px;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-primary:active:not(:disabled) { transform: scale(0.99); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary.btn-error {
+    background: var(--red);
+  }
+  .btn-primary.btn-error:hover:not(:disabled) { background: #dc2626; }
+  .btn-secondary {
+    width: 100%;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-secondary:hover { border-color: var(--border-hover); color: var(--text); }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== Progress view ===== */
+  .progress-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .progress-header .header-icon { color: var(--accent); }
+  .progress-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.3px;
+  }
+  .progress-header .status-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  .progress-bar-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 30%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.3s ease, background 0.3s ease;
+    animation: progressPulse 2s ease-in-out infinite;
+  }
+  .progress-bar-fill.done {
+    width: 100%;
+    background: var(--green);
+    animation: none;
+  }
+  .progress-bar-fill.error {
+    width: 100%;
+    background: var(--red);
+    animation: none;
+  }
+  @keyframes progressPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .terminal {
+    flex: 1;
+    min-height: 0;
+    background: #090b10;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    overflow-y: auto;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    color: #a8c7a0;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .terminal .line {
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .terminal .line::before {
+    content: "$ ";
+    color: rgba(52, 211, 153, 0.3);
+  }
+  .terminal::-webkit-scrollbar { width: 4px; }
+  .terminal::-webkit-scrollbar-track { background: transparent; }
+  .terminal::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  /* Result area inside progress view */
+  .result-area {
+    margin-top: 16px;
+  }
+  .result-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+    font-weight: 500;
+    font-size: 14px;
+  }
+  .result-banner.success {
+    background: var(--green-bg);
+    border: 1px solid rgba(52, 211, 153, 0.15);
+    color: var(--green);
+  }
+  .result-banner.error {
+    background: var(--red-bg);
+    border: 1px solid rgba(248, 113, 113, 0.15);
+    color: var(--red);
+  }
+  .result-banner .icon { font-size: 18px; }
+
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn-download:hover {
+    background: var(--border);
+    border-color: var(--text-muted);
+  }
+
+  .progress-footer {
+    display: flex;
+    gap: 12px;
+    padding-top: 16px;
+    flex-shrink: 0;
+    padding-bottom: 24px;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ===== CONFIG VIEW ===== -->
+  <div class="view" id="configView">
+    <div class="scroll-area">
+      <div class="warning-banner" id="warningBanner">
+        <span class="icon">&#9888;</span>
+        <span id="warningText"></span>
+      </div>
+
+      <div class="card">
+        <div class="header">
+          <div class="header-left">
+            <svg class="header-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+              <line x1="7" y1="2" x2="7" y2="22"/>
+              <line x1="17" y1="2" x2="17" y2="22"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <line x1="2" y1="7" x2="7" y2="7"/>
+              <line x1="2" y1="17" x2="7" y2="17"/>
+              <line x1="17" y1="7" x2="22" y2="7"/>
+              <line x1="17" y1="17" x2="22" y2="17"/>
+            </svg>
+            <div class="header-text">
+              <h1>OP Replay Clipper</h1>
+              <div class="subtitle">Extract and render comma.ai drive segments</div>
+            </div>
+          </div>
+          <span class="badge">Local</span>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>Download Source</label>
+            <div class="pills" id="downloadSourcePills">
+              <button class="pill active" data-value="connect">Comma Connect</button>
+              <button class="pill" data-value="ssh">Local SSH</button>
+            </div>
+          </div>
+          <div class="field" id="jwtField">
+            <label for="jwtToken">JWT Token (optional)</label>
+            <input type="password" id="jwtToken" placeholder="For private routes" autocomplete="off">
+            <div class="hint">From jwt.comma.ai for non-public routes.</div>
+          </div>
+          <div class="field" id="deviceIpField" style="display:none;">
+            <label for="deviceIp">Device IP Address</label>
+            <div class="ip-input-wrap">
+              <input type="text" id="deviceIp" placeholder="e.g. 192.168.1.11" autocomplete="off" spellcheck="false">
+              <button type="button" class="btn-scan-icon" id="btnScan" onclick="scanDevices()" title="Scan network for comma devices">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ssh-status" id="sshStatus"></div>
+            <div class="hint">Your comma device on the local network.</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="route">Route URL</label>
+          <input type="text" id="route" placeholder="https://connect.comma.ai/dongle/route/start/end" autocomplete="off" spellcheck="false">
+          <div class="hint" id="routeHint">Paste a connect.comma.ai URL with start/end times, or a pipe-delimited route ID.</div>
+          <div id="estimateBox" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.12);font-size:12px;color:var(--accent);"></div>
+        </div>
+
+        <div class="field">
+          <label>Render Type</label>
+          <div class="pills" id="renderTypePills">
+            <button class="pill active" data-value="ui" title="openpilot UI replay with path, lanes, and metadata overlay">UI</button>
+            <button class="pill" data-value="ui-alt" title="UI variant with steering wheel and confidence rail in footer">UI Alt</button>
+            <button class="pill" data-value="driver-debug" title="Driver camera with DM state, awareness, and pose telemetry">Driver Debug</button>
+            <button class="pill" data-value="forward" title="Forward camera only, no UI overlay. Fast render.">Forward</button>
+            <button class="pill" data-value="wide" title="Wide camera only, no UI overlay. Fast render.">Wide</button>
+            <button class="pill" data-value="driver" title="Driver camera only, no UI overlay. Fast render.">Driver</button>
+            <button class="pill" data-value="360" title="360 video from wide + driver cameras. View in VLC or YouTube.">360</button>
+            <button class="pill" data-value="forward_upon_wide" title="Forward projected onto wide using camera calibration">Fwd/Wide</button>
+            <button class="pill" data-value="360_forward_upon_wide" title="8K 360 with forward projected onto wide. Large output.">360 Fwd/Wide</button>
+          </div>
+          <div class="render-desc" id="renderTypeDesc">openpilot UI replay with path, lanes, and metadata overlay. Uses smear preroll.</div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="fileSize">File Size (MB)</label>
+            <input type="number" id="fileSize" value="9" min="1">
+            <div class="hint">Target output size. Actual may vary.</div>
+            <label style="display:flex;align-items:center;gap:6px;margin-top:8px;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer;color:var(--text);">
+              <input type="checkbox" id="noLimit" style="width:auto;accent-color:var(--accent);cursor:pointer;" onchange="toggleNoLimit(this.checked)">
+              No limit (max quality)
+            </label>
+          </div>
+          <div class="field">
+            <label for="fileFormat">File Format</label>
+            <select id="fileFormat">
+              <option value="auto" selected>Auto</option>
+              <option value="h264">H.264 (compatible)</option>
+              <option value="hevc">HEVC (smaller)</option>
+            </select>
+            <div class="hint">Auto uses HEVC for 360, H.264 otherwise.</div>
+          </div>
+        </div>
+
+        <div class="field smear-field visible" id="smearField">
+          <label for="smearSeconds">Smear Preroll (seconds)</label>
+          <input type="number" id="smearSeconds" value="3" min="3" max="40">
+          <div class="hint">Hidden preroll to initialize UI state before the clip starts.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view-footer">
+      <div id="configError" style="display:none;padding:10px 14px;margin-bottom:12px;border-radius:8px;background:var(--red-bg);border:1px solid rgba(248,113,113,0.15);color:var(--red);font-size:13px;font-weight:500;text-align:center;"></div>
+      <button class="btn-primary" id="btnRender" onclick="startRender()">
+        <span id="btnText">Start Render</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== PROGRESS VIEW ===== -->
+  <div class="view hidden" id="progressView" style="padding-top:32px;">
+    <div class="progress-header">
+      <svg class="header-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+        <line x1="7" y1="2" x2="7" y2="22"/>
+        <line x1="17" y1="2" x2="17" y2="22"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <line x1="2" y1="7" x2="7" y2="7"/>
+        <line x1="2" y1="17" x2="7" y2="17"/>
+        <line x1="17" y1="7" x2="22" y2="7"/>
+        <line x1="17" y1="17" x2="22" y2="17"/>
+      </svg>
+      <div>
+        <h2 id="progressTitle">Rendering...</h2>
+        <div class="status-text" id="progressStatus">Processing your clip</div>
+      </div>
+    </div>
+
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+
+    <div id="progressStats" style="display:none;padding:8px 14px;margin-bottom:12px;border-radius:6px;background:rgba(255,255,255,0.03);font-family:'SF Mono','Cascadia Code','Fira Code',monospace;font-size:11px;color:var(--text-muted);display:none;">
+    </div>
+
+    <div class="terminal" id="logBox"></div>
+
+    <div class="result-area" id="resultArea" style="display:none;">
+      <div class="result-banner success" id="successBanner" style="display:none;">
+        <span class="icon">&#10003;</span>
+        <span>Render Complete</span>
+      </div>
+
+      <!-- Clip Summary Card -->
+      <div id="clipSummary" style="display:none;margin-bottom:14px;">
+        <div style="display:flex;gap:1px;border-radius:8px;overflow:hidden;">
+          <div style="flex:1;padding:14px 16px;background:rgba(255,255,255,0.03);text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1.2;" id="summarySize">—</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">File Size</div>
+          </div>
+          <div style="flex:1;padding:14px 16px;background:rgba(255,255,255,0.03);text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1.2;" id="summaryDuration">—</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">Duration</div>
+          </div>
+          <div style="flex:1;padding:14px 16px;background:rgba(255,255,255,0.03);text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1.2;" id="summaryBitrate">—</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">Bitrate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- File Location -->
+      <div id="downloadArea" style="display:none;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.12);border-radius:8px;">
+          <svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="1.5" viewBox="0 0 24 24" style="flex-shrink:0;">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          </svg>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;" id="clipFilename"></div>
+            <div style="font-size:11px;color:var(--text-muted);opacity:0.7;word-break:break-all;" id="clipPathText"></div>
+          </div>
+          <button onclick="copyClipPath()" style="flex-shrink:0;padding:6px 12px;font-size:12px;font-weight:500;font-family:inherit;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;" id="copyBtn">Copy Path</button>
+        </div>
+      </div>
+
+      <div class="result-banner error" id="errorBanner" style="display:none;">
+        <span class="icon">&#10007;</span>
+        <span id="errorText">Render Failed</span>
+      </div>
+    </div>
+
+    <div class="progress-footer">
+      <button class="btn-secondary" id="btnBack" onclick="returnToConfig()" style="display:none;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span id="btnBackText">Back to Setup</span>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SMEAR_TYPES = new Set(["ui", "ui-alt", "driver-debug"]);
+  const RENDER_DESCS = {
+    "ui": "openpilot UI replay with path, lanes, and metadata overlay. Uses smear preroll.",
+    "ui-alt": "UI variant with steering wheel and confidence rail in footer. Uses smear preroll.",
+    "driver-debug": "Driver camera with DM state, awareness, distraction, and pose telemetry. Uses smear preroll.",
+    "forward": "Forward camera only, no UI. Fast ffmpeg transcode.",
+    "wide": "Wide camera only, no UI. Fast ffmpeg transcode.",
+    "driver": "Driver camera only, no UI. Fast ffmpeg transcode.",
+    "360": "360 video stitched from wide + driver cameras. View in VLC or YouTube.",
+    "forward_upon_wide": "Forward projected onto wide using camera calibration.",
+    "360_forward_upon_wide": "8K 360 with forward projected onto wide. Large output for reframing.",
+  };
+  let currentRenderType = "ui";
+  let currentDownloadSource = "connect";
+  let currentSshPort = 22;
+  let currentJobId = null;
+  let eventSource = null;
+  let sshTestTimer = null;
+
+  // ===== Health check =====
+  async function checkHealth() {
+    try {
+      const res = await fetch("/api/health");
+      const h = await res.json();
+      if (!h.docker) {
+        showWarning("Docker CLI not available. The web server cannot spawn render containers.");
+      } else if (!h.image) {
+        showWarning("Render image '" + h.image_name + "' not found. Run: ./install.sh or make docker-build");
+      }
+    } catch {}
+  }
+  window.addEventListener("DOMContentLoaded", checkHealth);
+
+  function showWarning(message) {
+    document.getElementById("warningText").textContent = message;
+    document.getElementById("warningBanner").classList.add("visible");
+  }
+
+  // ===== SSH device scanning & testing =====
+  function setSshStatus(msg, type) {
+    const el = document.getElementById("sshStatus");
+    el.textContent = msg;
+    el.className = "ssh-status" + (type ? " " + type : "");
+  }
+
+  function setScanIcon(scanning) {
+    const btn = document.getElementById("btnScan");
+    if (scanning) {
+      btn.classList.add("scanning");
+      btn.innerHTML = '<div class="scan-spinner"></div>';
+    } else {
+      btn.classList.remove("scanning");
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    }
+  }
+
+  async function scanDevices() {
+    setScanIcon(true);
+    setSshStatus("Scanning network...", "scanning");
+    try {
+      const res = await fetch("/api/scan-devices", { method: "POST" });
+      const data = await res.json();
+      if (data.error && !data.devices.length) {
+        setSshStatus(data.error, "error");
+      } else if (data.devices.length === 0) {
+        setSshStatus("No comma devices found on network.", "error");
+      } else {
+        const dev = data.devices[0];
+        document.getElementById("deviceIp").value = dev.ip;
+        currentSshPort = dev.port;
+        setSshStatus("Found " + dev.device_type + " at " + dev.ip + ":" + dev.port, "success");
+      }
+    } catch (err) {
+      setSshStatus("Scan failed: " + err.message, "error");
+    }
+    setScanIcon(false);
+  }
+
+  async function testConnection() {
+    const ip = document.getElementById("deviceIp").value.trim();
+    if (!ip) { setSshStatus("", ""); return; }
+    setSshStatus("Testing connection...", "scanning");
+    try {
+      // Test the detected port first, then the other port
+      const ports = currentSshPort === 8022 ? [8022, 22] : [22, 8022];
+      for (const port of ports) {
+        const res = await fetch("/api/test-ssh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ip, port }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentSshPort = port;
+          setSshStatus(data.message, "success");
+          return;
+        }
+      }
+      setSshStatus("Cannot reach device at " + ip, "error");
+    } catch (err) {
+      setSshStatus("Test failed: " + err.message, "error");
+    }
+  }
+
+  // Debounced auto-test when IP changes
+  document.addEventListener("DOMContentLoaded", () => {
+    const ipInput = document.getElementById("deviceIp");
+    ipInput.addEventListener("input", () => {
+      clearTimeout(sshTestTimer);
+      const val = ipInput.value.trim();
+      if (!val) { currentSshPort = 22; setSshStatus("", ""); return; }
+      sshTestTimer = setTimeout(testConnection, 800);
+    });
+  });
+
+  // ===== View swap =====
+  function showView(id) {
+    document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
+    const target = document.getElementById(id);
+    target.classList.remove("hidden");
+    target.style.opacity = "0";
+    target.style.transform = "translateY(6px)";
+    requestAnimationFrame(() => {
+      target.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+      target.style.opacity = "1";
+      target.style.transform = "translateY(0)";
+    });
+  }
+
+  function returnToConfig() {
+    if (eventSource) { eventSource.close(); eventSource = null; }
+    showView("configView");
+  }
+
+  // ===== Config view interactions =====
+  document.getElementById("downloadSourcePills").addEventListener("click", (e) => {
+    const pill = e.target.closest(".pill");
+    if (!pill) return;
+    document.querySelectorAll("#downloadSourcePills .pill").forEach(p => p.classList.remove("active"));
+    pill.classList.add("active");
+    currentDownloadSource = pill.dataset.value;
+    const isSSH = currentDownloadSource === "ssh";
+    document.getElementById("deviceIpField").style.display = isSSH ? "" : "none";
+    document.getElementById("jwtField").style.display = isSSH ? "none" : "";
+    if (isSSH) { currentSshPort = 22; setSshStatus("", ""); }
+    document.getElementById("routeHint").textContent = isSSH
+      ? "Paste a connect URL or route ID. The app will parse the ID and download the files directly via SSH."
+      : "Paste a connect.comma.ai URL with start/end times, or a pipe-delimited route ID.";
+  });
+
+  document.getElementById("renderTypePills").addEventListener("click", (e) => {
+    const pill = e.target.closest(".pill");
+    if (!pill) return;
+    document.querySelectorAll("#renderTypePills .pill").forEach(p => p.classList.remove("active"));
+    pill.classList.add("active");
+    currentRenderType = pill.dataset.value;
+    document.getElementById("renderTypeDesc").textContent = RENDER_DESCS[currentRenderType] || "";
+    const smearField = document.getElementById("smearField");
+    smearField.classList.toggle("visible", SMEAR_TYPES.has(currentRenderType));
+    lastEstimateRoute = ""; fetchEstimate();
+  });
+
+  // ===== Route estimate =====
+  let estimateTimer = null;
+  let lastEstimateRoute = "";
+
+  function fetchEstimate() {
+    const route = document.getElementById("route").value.trim();
+    const fileSizeMb = document.getElementById("noLimit").checked ? 0 : (parseInt(document.getElementById("fileSize").value) || 9);
+    const jwtToken = document.getElementById("jwtToken").value.trim();
+    const box = document.getElementById("estimateBox");
+
+    if (!route || route === lastEstimateRoute) return;
+    if (!route.startsWith("https://connect.comma.ai/") && !route.includes("|")) {
+      box.style.display = "none";
+      return;
+    }
+
+    lastEstimateRoute = route;
+    box.style.display = "block";
+    box.textContent = "Resolving route...";
+
+    fetch("/api/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ route, file_size_mb: fileSizeMb, render_type: currentRenderType, jwt_token: jwtToken, download_source: currentDownloadSource }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.duration_seconds == null) {
+          box.style.display = data.note ? "block" : "none";
+          box.textContent = data.note || "";
+          return;
+        }
+        const mins = Math.floor(data.duration_seconds / 60);
+        const secs = data.duration_seconds % 60;
+        const dur = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        box.textContent = `Route duration: ${dur} — Estimated output: ~${data.estimated_mb} MB`;
+      })
+      .catch(() => { box.style.display = "none"; });
+  }
+
+  document.getElementById("route").addEventListener("input", () => {
+    lastEstimateRoute = "";
+    clearTimeout(estimateTimer);
+    estimateTimer = setTimeout(fetchEstimate, 600);
+  });
+  document.getElementById("fileSize").addEventListener("input", () => { lastEstimateRoute = ""; fetchEstimate(); });
+  document.getElementById("noLimit").addEventListener("change", () => { lastEstimateRoute = ""; fetchEstimate(); });
+
+  function toggleNoLimit(checked) {
+    const el = document.getElementById("fileSize");
+    el.disabled = checked;
+    el.style.opacity = checked ? "0.4" : "1";
+  }
+
+  // ===== Progress view helpers =====
+  function resetProgress() {
+    document.getElementById("logBox").innerHTML = "";
+    document.getElementById("progressTitle").textContent = "Rendering...";
+    document.getElementById("progressStatus").textContent = "Processing your clip";
+    const bar = document.getElementById("progressBar");
+    bar.className = "progress-bar-fill";
+    bar.style.width = "30%";
+    document.getElementById("progressStats").style.display = "none";
+    document.getElementById("progressStats").textContent = "";
+    document.getElementById("resultArea").style.display = "none";
+    document.getElementById("successBanner").style.display = "none";
+    document.getElementById("errorBanner").style.display = "none";
+    document.getElementById("downloadArea").style.display = "none";
+    document.getElementById("clipSummary").style.display = "none";
+    window._lastProgress = {};
+    const back = document.getElementById("btnBack");
+    back.style.display = "flex";
+    back.style.background = "";
+    document.getElementById("btnBackText").textContent = "Cancel";
+    back.className = "btn-secondary";
+  }
+
+  function appendLog(text) {
+    const box = document.getElementById("logBox");
+    const line = document.createElement("div");
+    line.className = "line";
+    line.textContent = text;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function showConfigError(msg) {
+    const el = document.getElementById("configError");
+    el.textContent = msg;
+    el.style.display = "block";
+    setTimeout(() => { el.style.display = "none"; }, 5000);
+  }
+
+  // ===== Start render =====
+  async function startRender() {
+    document.getElementById("configError").style.display = "none";
+    const route = document.getElementById("route").value.trim();
+    if (!route) {
+      showConfigError("Please enter a route URL.");
+      document.getElementById("route").focus();
+      return;
+    }
+    if (!route.startsWith("https://connect.comma.ai/") && !route.includes("|")) {
+      showConfigError("Route should be a connect.comma.ai URL or a pipe-delimited route ID.");
+      document.getElementById("route").focus();
+      return;
+    }
+
+    const deviceIp = document.getElementById("deviceIp").value.trim();
+    if (currentDownloadSource === "ssh" && !deviceIp) {
+      showConfigError("Device IP address is required for SSH downloads.");
+      document.getElementById("deviceIp").focus();
+      return;
+    }
+
+    resetProgress();
+    showView("progressView");
+
+    const body = {
+      route: route,
+      render_type: currentRenderType,
+      file_size_mb: document.getElementById("noLimit").checked ? 0 : (parseInt(document.getElementById("fileSize").value) || 9),
+      file_format: document.getElementById("fileFormat").value,
+      smear_seconds: parseInt(document.getElementById("smearSeconds").value) || 3,
+      jwt_token: document.getElementById("jwtToken").value.trim(),
+      download_source: currentDownloadSource,
+      device_ip: deviceIp,
+      ssh_port: currentSshPort,
+    };
+
+    try {
+      const res = await fetch("/api/clip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to start render");
+      }
+      const data = await res.json();
+      currentJobId = data.job_id;
+      appendLog("Job started: " + currentJobId);
+      streamLogs(currentJobId);
+    } catch (err) {
+      appendLog("ERROR: " + err.message);
+      onRenderFail(err.message);
+    }
+  }
+
+  function formatSize(kb) {
+    return kb >= 1024 ? (kb / 1024).toFixed(1) + " MB" : kb + " KB";
+  }
+
+  function streamLogs(jobId) {
+    eventSource = new EventSource("/api/clip/" + jobId + "/status");
+    eventSource.onmessage = (e) => appendLog(e.data);
+    eventSource.addEventListener("progress", (e) => {
+      try {
+        const p = JSON.parse(e.data);
+        window._lastProgress = p;
+        const stats = document.getElementById("progressStats");
+        const parts = [];
+        if (p.size_kb != null) parts.push("Size: " + formatSize(p.size_kb));
+        if (p.time_seconds != null) parts.push("Time: " + Math.round(p.time_seconds) + "s");
+        if (p.bitrate_kbps != null) parts.push("Bitrate: " + (p.bitrate_kbps / 1000).toFixed(1) + " Mbps");
+        if (p.speed != null) parts.push("Speed: " + p.speed.toFixed(1) + "x");
+        if (parts.length) {
+          stats.textContent = parts.join("  |  ");
+          stats.style.display = "block";
+        }
+      } catch {}
+    });
+    eventSource.addEventListener("state", (e) => {
+      eventSource.close();
+      eventSource = null;
+      if (e.data === "done") {
+        onRenderSuccess(jobId);
+      } else {
+        onRenderFail("Render failed. See logs for details.");
+      }
+    });
+    eventSource.onerror = () => {
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      setTimeout(() => pollFinalState(jobId), 1000);
+    };
+  }
+
+  async function pollFinalState(jobId) {
+    try {
+      const res = await fetch("/api/clip/" + jobId);
+      const data = await res.json();
+      if (data.state === "done") { onRenderSuccess(jobId); return; }
+      if (data.state === "failed") { onRenderFail(data.error || "Render failed"); return; }
+      setTimeout(() => pollFinalState(jobId), 2000);
+    } catch {
+      onRenderFail("Lost connection to server");
+    }
+  }
+
+  function onRenderSuccess(jobId) {
+    document.getElementById("progressTitle").textContent = "Render Complete";
+    document.getElementById("progressStatus").textContent = "Your clip is ready";
+    const bar = document.getElementById("progressBar");
+    bar.classList.add("done");
+    bar.style.width = "100%";
+
+    const area = document.getElementById("resultArea");
+    area.style.display = "block";
+    document.getElementById("successBanner").style.display = "flex";
+
+    // Populate summary card from last known progress stats
+    const summary = document.getElementById("clipSummary");
+    const lastProgress = window._lastProgress || {};
+    if (lastProgress.size_kb != null) {
+      const sizeMb = (lastProgress.size_kb / 1024).toFixed(1);
+      document.getElementById("summarySize").textContent = sizeMb + " MB";
+    }
+    if (lastProgress.time_seconds != null) {
+      const t = Math.round(lastProgress.time_seconds);
+      const m = Math.floor(t / 60);
+      const s = t % 60;
+      document.getElementById("summaryDuration").textContent = m > 0 ? m + "m " + s + "s" : s + "s";
+    }
+    if (lastProgress.bitrate_kbps != null) {
+      document.getElementById("summaryBitrate").textContent = (lastProgress.bitrate_kbps / 1000).toFixed(1) + " Mbps";
+    }
+    summary.style.display = "block";
+
+    window._clipJobId = jobId;
+    document.getElementById("downloadArea").style.display = "block";
+    fetch("/api/clip/" + jobId + "/host-path")
+      .then(r => r.json())
+      .then(data => {
+        const path = data.path;
+        const parts = path.split("/");
+        document.getElementById("clipFilename").textContent = parts[parts.length - 1];
+        document.getElementById("clipPathText").textContent = path;
+      })
+      .catch(() => {
+        document.getElementById("clipFilename").textContent = "clip-" + jobId + ".mp4";
+        document.getElementById("clipPathText").textContent = "File saved to shared directory";
+      });
+
+    const back = document.getElementById("btnBack");
+    back.style.display = "flex";
+    back.className = "btn-primary";
+    back.style.background = "var(--green)";
+    document.getElementById("btnBackText").textContent = "New Render";
+  }
+
+  function copyClipPath() {
+    const path = document.getElementById("clipPathText").textContent;
+    navigator.clipboard.writeText(path).then(() => {
+      const btn = document.getElementById("copyBtn");
+      btn.textContent = "Copied!";
+      btn.style.color = "var(--green)";
+      setTimeout(() => { btn.textContent = "Copy Path"; btn.style.color = ""; }, 1500);
+    });
+  }
+
+  function onRenderFail(message) {
+    document.getElementById("progressTitle").textContent = "Render Failed";
+    document.getElementById("progressStatus").textContent = message;
+    const bar = document.getElementById("progressBar");
+    bar.classList.add("error");
+    bar.style.width = "100%";
+
+    const area = document.getElementById("resultArea");
+    area.style.display = "block";
+    document.getElementById("errorBanner").style.display = "flex";
+    document.getElementById("errorText").textContent = message;
+
+    const back = document.getElementById("btnBack");
+    back.style.display = "flex";
+    back.className = "btn-primary btn-error";
+    document.getElementById("btnBackText").textContent = "Return and Fix Settings";
+  }
+</script>
+
+</body>
+</html>
