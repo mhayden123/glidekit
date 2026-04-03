@@ -1051,6 +1051,34 @@
     }
   }
 
+  // Parse clip stats from log lines as fallback when progress events are missing.
+  function parseStatsFromLogs() {
+    var stats = { size_kb: null, time_seconds: null, bitrate_kbps: null };
+    var box = document.getElementById("logBox");
+    if (!box) return stats;
+    var lines = box.querySelectorAll(".line");
+    for (var i = lines.length - 1; i >= 0; i--) {
+      var t = lines[i].textContent || "";
+      // Match ffmpeg stats lines: "frame= ... size=" or trim pass "size= ... time= ... bitrate="
+      if ((t.indexOf("size=") !== -1 || t.indexOf("Lsize=") !== -1) && t.indexOf("kB") !== -1 && t.indexOf("bitrate=") !== -1) {
+        var sizeMatch = t.match(/[Ls]?size=\s*(\d+)kB/);
+        if (sizeMatch) stats.size_kb = parseInt(sizeMatch[1]);
+        var timeMatch = t.match(/time=\s*([\d:.]+)/);
+        if (timeMatch) stats.time_seconds = parseFFmpegTime(timeMatch[1]);
+        var brMatch = t.match(/bitrate=\s*([\d.]+)kbits\/s/);
+        if (brMatch) stats.bitrate_kbps = parseFloat(brMatch[1]);
+        break;
+      }
+    }
+    return stats;
+  }
+
+  function parseFFmpegTime(t) {
+    var parts = t.split(":");
+    if (parts.length === 3) return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+    return 0;
+  }
+
   function onRenderSuccess(jobId) {
     document.getElementById("progressTitle").textContent = "Render Complete";
     document.getElementById("progressStatus").textContent = "Your clip is ready";
@@ -1062,21 +1090,26 @@
     area.style.display = "block";
     document.getElementById("successBanner").style.display = "flex";
 
-    // Populate summary card from last known progress stats
+    // Populate summary card — prefer progress events, fall back to log parsing
     const summary = document.getElementById("clipSummary");
     const lastProgress = window._lastProgress || {};
-    if (lastProgress.size_kb != null) {
-      const sizeMb = (lastProgress.size_kb / 1024).toFixed(1);
+    const logStats = parseStatsFromLogs();
+    const sizeKb = lastProgress.size_kb || logStats.size_kb;
+    const timeSec = lastProgress.time_seconds || logStats.time_seconds;
+    const bitrateKbps = lastProgress.bitrate_kbps || logStats.bitrate_kbps;
+
+    if (sizeKb != null) {
+      const sizeMb = (sizeKb / 1024).toFixed(1);
       document.getElementById("summarySize").textContent = sizeMb + " MB";
     }
-    if (lastProgress.time_seconds != null) {
-      const t = Math.round(lastProgress.time_seconds);
+    if (timeSec != null) {
+      const t = Math.round(timeSec);
       const m = Math.floor(t / 60);
       const s = t % 60;
       document.getElementById("summaryDuration").textContent = m > 0 ? m + "m " + s + "s" : s + "s";
     }
-    if (lastProgress.bitrate_kbps != null) {
-      document.getElementById("summaryBitrate").textContent = (lastProgress.bitrate_kbps / 1000).toFixed(1) + " Mbps";
+    if (bitrateKbps != null) {
+      document.getElementById("summaryBitrate").textContent = (bitrateKbps / 1000).toFixed(1) + " Mbps";
     }
     summary.style.display = "block";
 

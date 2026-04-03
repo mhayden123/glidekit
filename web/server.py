@@ -12,6 +12,7 @@ import socket
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -61,6 +62,27 @@ VALID_RENDER_TYPES = {
     "ui", "ui-alt", "driver-debug", "forward", "wide",
     "driver", "360", "forward_upon_wide", "360_forward_upon_wide",
 }
+
+# Regex to strip ANSI escape sequences (color codes, cursor movement, etc.)
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?\x07")
+
+
+def _sanitize_log_line(raw: str) -> str | None:
+    """Clean a raw subprocess output line for display in the web UI.
+
+    Strips ANSI escapes, carriage returns (tqdm progress overwrites),
+    and other control characters. Returns None for lines that are
+    empty after sanitization (suppresses noise in the log view).
+    """
+    # Handle carriage-return overwrites: keep only the last segment
+    if "\r" in raw:
+        raw = raw.rsplit("\r", 1)[-1]
+    # Strip ANSI escape sequences
+    raw = _ANSI_RE.sub("", raw)
+    # Strip remaining control characters (except tab)
+    raw = "".join(c for c in raw if c == "\t" or (c >= " " and c != "\x7f"))
+    raw = raw.rstrip()
+    return raw if raw else None
 SMEAR_RENDER_TYPES = {"ui", "ui-alt", "driver-debug"}
 
 
@@ -201,14 +223,18 @@ async def _run_clip(job: Job, req: ClipRequestBody) -> None:
 
         assert proc.stdout is not None
         async for raw_line in proc.stdout:
-            line = raw_line.decode("utf-8", errors="replace").rstrip("\n")
-            job.logs.append(line)
+            decoded = raw_line.decode("utf-8", errors="replace").rstrip("\n")
 
-            # Parse ffmpeg progress lines (identical to Docker version)
-            if line.startswith("frame="):
-                m = _FFMPEG_PROGRESS_RE.match(line)
+            # Parse ffmpeg progress lines before sanitization (they use \r)
+            # Match lines starting with frame= or size= (trim pass uses size= without frame=)
+            frame_content = decoded
+            if "\r" in frame_content:
+                frame_content = frame_content.rsplit("\r", 1)[-1]
+            stripped = frame_content.lstrip()
+            if stripped.startswith("frame=") or (stripped.startswith("size=") and "kB" in stripped):
+                m = _FFMPEG_PROGRESS_RE.match(stripped)
+                progress: dict[str, Any] = {}
                 if m:
-                    progress: dict[str, Any] = {}
                     if m.group(3):
                         progress["size_kb"] = int(m.group(3))
                     if m.group(4):
@@ -217,11 +243,23 @@ async def _run_clip(job: Job, req: ClipRequestBody) -> None:
                         progress["bitrate_kbps"] = float(m.group(5))
                     if m.group(6):
                         progress["speed"] = float(m.group(6))
-                    if progress:
-                        job.progress = progress
+                # Fallback: parse size=/time=/bitrate= from trim pass lines
+                if not progress and "size=" in stripped:
+                    sm = re.search(r"size=\s*(\d+)kB", stripped)
+                    tm = re.search(r"time=\s*([\d:.]+)", stripped)
+                    bm = re.search(r"bitrate=\s*([\d.]+)kbits/s", stripped)
+                    if sm:
+                        progress["size_kb"] = int(sm.group(1))
+                    if tm:
+                        progress["time_seconds"] = round(_parse_ffmpeg_time(tm.group(1)), 1)
+                    if bm:
+                        progress["bitrate_kbps"] = float(bm.group(1))
+                if progress:
+                    job.progress = progress
 
-            # Parse render progress lines from big_ui_engine.py
-            if "Render progress:" in line:
+            # Sanitize for display (strip ANSI, \r, control chars)
+            line = _sanitize_log_line(decoded)
+            if line is not None:
                 job.logs.append(line)
 
         exit_code = await proc.wait()
