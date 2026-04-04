@@ -365,21 +365,122 @@ def _build_clip_cmd(job: Job, req: ClipRequestBody) -> tuple[list[str], str | No
     return cmd, str(PROJECT_ROOT)
 
 
-async def _run_clip(job: Job, req: ClipRequestBody) -> None:
-    """Run clip.py as a native subprocess and stream output into the job log.
+def _process_output_line(job: Job, decoded: str) -> None:
+    """Parse a single line of subprocess output for progress and log it."""
+    # Parse ffmpeg progress lines before sanitization (they use \r)
+    frame_content = decoded
+    if "\r" in frame_content:
+        frame_content = frame_content.rsplit("\r", 1)[-1]
+    stripped = frame_content.lstrip()
+    if stripped.startswith("frame=") or (stripped.startswith("size=") and "kB" in stripped):
+        m = _FFMPEG_PROGRESS_RE.match(stripped)
+        progress: dict[str, Any] = {}
+        if m:
+            if m.group(3):
+                progress["size_kb"] = int(m.group(3))
+            if m.group(4):
+                progress["time_seconds"] = round(_parse_ffmpeg_time(m.group(4)), 1)
+            if m.group(5):
+                progress["bitrate_kbps"] = float(m.group(5))
+            if m.group(6):
+                progress["speed"] = float(m.group(6))
+        # Fallback: parse size=/time=/bitrate= from trim pass lines
+        if not progress and "size=" in stripped:
+            sm = re.search(r"size=\s*(\d+)kB", stripped)
+            tm = re.search(r"time=\s*([\d:.]+)", stripped)
+            bm = re.search(r"bitrate=\s*([\d.]+)kbits/s", stripped)
+            if sm:
+                progress["size_kb"] = int(sm.group(1))
+            if tm:
+                progress["time_seconds"] = round(_parse_ffmpeg_time(tm.group(1)), 1)
+            if bm:
+                progress["bitrate_kbps"] = float(bm.group(1))
+        if progress:
+            job.progress = progress
 
-    This replaces ``_run_container()`` from the Docker version.  The async
-    stdout streaming and ffmpeg progress parsing logic is preserved — only
-    the command source changes (subprocess instead of Docker container).
+    # Sanitize for display (strip ANSI, \r, control chars)
+    line = _sanitize_log_line(decoded)
+    if line is not None:
+        job.logs.append(line)
+
+
+def _run_clip_sync(job: Job, req: ClipRequestBody) -> None:
+    """Synchronous clip.py runner using subprocess.Popen.
+
+    Used on Windows where asyncio's ProactorEventLoop pipe reading is unreliable.
+    Runs in a ThreadPoolExecutor so it doesn't block the event loop.
     """
+    try:
+        cmd, cwd = _build_clip_cmd(job, req)
+        job.state = JobState.running
+        job.logs.append(f"$ python clip.py {req.render_type} {req.route} ...")
+
+        child_env = dict(os.environ)
+        child_env["PYTHONUNBUFFERED"] = "1"
+
+        kwargs: dict[str, Any] = {
+            "stdout": _subprocess.PIPE,
+            "stderr": _subprocess.STDOUT,
+            "cwd": cwd,
+            "env": child_env,
+            "bufsize": 0,
+        }
+        # Prevent a console window from flashing on Windows
+        if IS_WINDOWS:
+            kwargs["creationflags"] = _subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
+
+        proc = _subprocess.Popen(cmd, **kwargs)
+
+        assert proc.stdout is not None
+        for raw_line in proc.stdout:
+            decoded = raw_line.decode("utf-8", errors="replace").rstrip("\n")
+            _process_output_line(job, decoded)
+
+        exit_code = proc.wait()
+
+        output_path = OUTPUT_DIR / job.job_id / "output.mp4"
+        file_found = output_path.exists()
+        file_size = output_path.stat().st_size if file_found else 0
+        if exit_code == 0 and file_found and file_size > 0:
+            job.state = JobState.done
+            job.output_path = str(output_path)
+            job.logs.append("Render complete.")
+        else:
+            job.state = JobState.failed
+            job.error = f"clip.py exited with code {exit_code}"
+            job.logs.append(f"ERROR: {job.error}")
+            job.logs.append(f"DEBUG: output_path={output_path}, exists={file_found}, size={file_size}")
+            job_dir = OUTPUT_DIR / job.job_id
+            if job_dir.exists():
+                contents = list(job_dir.iterdir())
+                job.logs.append(f"DEBUG: job_dir contents={[f.name for f in contents]}")
+    except FileNotFoundError:
+        job.state = JobState.failed
+        job.error = "Python or uv not found. Is the environment set up?"
+        job.logs.append(f"ERROR: {job.error}")
+    except Exception as exc:
+        job.state = JobState.failed
+        job.error = str(exc)
+        job.logs.append(f"ERROR: {job.error}")
+
+
+async def _run_clip(job: Job, req: ClipRequestBody) -> None:
+    """Run clip.py and stream output into the job log.
+
+    On Windows, uses synchronous Popen in a thread (reliable pipe reading).
+    On Linux/macOS, uses asyncio subprocess (efficient, no extra thread).
+    """
+    if IS_WINDOWS:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _run_clip_sync, job, req)
+        return
+
+    # Linux/macOS: async subprocess
     try:
         cmd, cwd = _build_clip_cmd(job, req)
         job.state = JobState.running
         job.logs.append(f"$ uv run python clip.py {req.render_type} {req.route} ...")
 
-        # PYTHONUNBUFFERED=1 forces unbuffered stdout/stderr in the child process.
-        # Without this, Python buffers output when stdout is a pipe (not a terminal),
-        # which causes missing logs and stats on Windows.
         child_env = dict(os.environ)
         child_env["PYTHONUNBUFFERED"] = "1"
 
@@ -394,43 +495,7 @@ async def _run_clip(job: Job, req: ClipRequestBody) -> None:
         assert proc.stdout is not None
         async for raw_line in proc.stdout:
             decoded = raw_line.decode("utf-8", errors="replace").rstrip("\n")
-
-            # Parse ffmpeg progress lines before sanitization (they use \r)
-            # Match lines starting with frame= or size= (trim pass uses size= without frame=)
-            frame_content = decoded
-            if "\r" in frame_content:
-                frame_content = frame_content.rsplit("\r", 1)[-1]
-            stripped = frame_content.lstrip()
-            if stripped.startswith("frame=") or (stripped.startswith("size=") and "kB" in stripped):
-                m = _FFMPEG_PROGRESS_RE.match(stripped)
-                progress: dict[str, Any] = {}
-                if m:
-                    if m.group(3):
-                        progress["size_kb"] = int(m.group(3))
-                    if m.group(4):
-                        progress["time_seconds"] = round(_parse_ffmpeg_time(m.group(4)), 1)
-                    if m.group(5):
-                        progress["bitrate_kbps"] = float(m.group(5))
-                    if m.group(6):
-                        progress["speed"] = float(m.group(6))
-                # Fallback: parse size=/time=/bitrate= from trim pass lines
-                if not progress and "size=" in stripped:
-                    sm = re.search(r"size=\s*(\d+)kB", stripped)
-                    tm = re.search(r"time=\s*([\d:.]+)", stripped)
-                    bm = re.search(r"bitrate=\s*([\d.]+)kbits/s", stripped)
-                    if sm:
-                        progress["size_kb"] = int(sm.group(1))
-                    if tm:
-                        progress["time_seconds"] = round(_parse_ffmpeg_time(tm.group(1)), 1)
-                    if bm:
-                        progress["bitrate_kbps"] = float(bm.group(1))
-                if progress:
-                    job.progress = progress
-
-            # Sanitize for display (strip ANSI, \r, control chars)
-            line = _sanitize_log_line(decoded)
-            if line is not None:
-                job.logs.append(line)
+            _process_output_line(job, decoded)
 
         exit_code = await proc.wait()
 
