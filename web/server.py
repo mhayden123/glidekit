@@ -96,6 +96,41 @@ def _detect_wsl() -> bool:
         return False
 
 
+def _resolve_uv() -> str:
+    """Resolve the full path to the uv binary. On Linux/macOS 'uv' on PATH is fine.
+    On Windows, PATH may not include the install location in new processes."""
+    if not IS_WINDOWS:
+        return "uv"
+
+    # Check PATH first
+    uv_on_path = shutil.which("uv") or shutil.which("uv.exe")
+    if uv_on_path:
+        log.info("uv found on PATH: %s", uv_on_path)
+        return uv_on_path
+
+    # Search known Windows install locations
+    home = Path.home()
+    local = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
+    roaming = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+    candidates = [
+        roaming / "Python" / "Python312" / "Scripts" / "uv.exe",
+        roaming / "Python" / "Python313" / "Scripts" / "uv.exe",
+        roaming / "Python" / "Scripts" / "uv.exe",
+        home / ".local" / "bin" / "uv.exe",
+        home / ".cargo" / "bin" / "uv.exe",
+        local / "Programs" / "Python" / "Python312" / "Scripts" / "uv.exe",
+        local / "Programs" / "Python" / "Python313" / "Scripts" / "uv.exe",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            resolved = str(candidate)
+            log.info("uv resolved at: %s", resolved)
+            return resolved
+
+    log.warning("uv not found in any known location, falling back to 'uv'")
+    return "uv"
+
+
 def _open_path(path: str) -> None:
     """Open a file or folder with the system default application."""
     if IS_MACOS:
@@ -245,8 +280,9 @@ def _build_clip_cmd(job: Job, req: ClipRequestBody) -> tuple[list[str], str | No
         return cmd, None  # cwd=None for WSL, it handles its own directory
 
     # Native execution
+    uv_bin = _resolve_uv()
     cmd: list[str] = [
-        "uv", "run", "python", "clip.py",
+        uv_bin, "run", "python", "clip.py",
         req.render_type,
         req.route,
         "-o", output_path,
