@@ -432,9 +432,30 @@ def _run_clip_sync(job: Job, req: ClipRequestBody) -> None:
         proc = _subprocess.Popen(cmd, **kwargs)
 
         assert proc.stdout is not None
-        for raw_line in proc.stdout:
-            decoded = raw_line.decode("utf-8", errors="replace").rstrip("\n")
-            _process_output_line(job, decoded)
+        # Read raw bytes and split on both \n and \r.
+        # ffmpeg writes progress lines with \r only (no \n) to overwrite
+        # the current line. Python's readline() only splits on \n, so those
+        # progress updates accumulate into one huge line. Reading in chunks
+        # and splitting on both \r and \n gives us every line as it arrives.
+        leftover = b""
+        while True:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
+                # Process any remaining data
+                if leftover:
+                    decoded = leftover.decode("utf-8", errors="replace").strip()
+                    if decoded:
+                        _process_output_line(job, decoded)
+                break
+            data = leftover + chunk
+            # Split on \r or \n (handles \r\n, \n, and \r-only lines)
+            parts = re.split(rb"[\r\n]+", data)
+            # Last part may be incomplete — save for next iteration
+            leftover = parts[-1]
+            for part in parts[:-1]:
+                decoded = part.decode("utf-8", errors="replace").strip()
+                if decoded:
+                    _process_output_line(job, decoded)
 
         exit_code = proc.wait()
 
