@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import replicate
 from core import route_inputs
 
-DEFAULT_MODEL = "nelsonjchen/op-replay-clipper-beta"
+DEFAULT_MODEL = "mhayden123/glidekit"
 DEFAULT_URL = "https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105"
 DEFAULT_OUTPUT = Path("./shared/replicate-run-output.mp4")
 

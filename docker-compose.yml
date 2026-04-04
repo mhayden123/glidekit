@@ -14,7 +14,7 @@ services:
       - ./shared:/app/shared
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - CLIPPER_IMAGE=op-replay-clipper-render
+      - GLIDEKIT_IMAGE=glidekit-render
       - SHARED_HOST_DIR=${PWD}/shared
       - SHARED_LOCAL_DIR=/app/shared
       - HOST_HOME_DIR=${HOME}
@@ -24,7 +24,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: op-replay-clipper-render
+    image: glidekit-render
     profiles: ["build-only"]
     volumes:
       - ./shared:/src/shared

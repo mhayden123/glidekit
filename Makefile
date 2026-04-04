@@ -95,7 +95,7 @@ cog-predict-bug-all-number-360:
 
 cog-push:
 	./cog/render_artifacts.sh
-	cog push r8.im/nelsonjchen/op-replay-clipper
+	cog push r8.im/mhayden123/glidekit
 
 # Build patched Cog 0.17 runtime wheels in Docker for reproducible beta pushes.
 cog-runtime-build:
@@ -150,11 +150,11 @@ docker-clean:
 	docker compose down --rmi local --volumes --remove-orphans
 
 # One-shot prerequisite check: Docker, GPU, render image.
-CLIPPER_IMAGE ?= op-replay-clipper-render
+GLIDEKIT_IMAGE ?= glidekit-render
 docker-check:
 	@echo "--- Docker ---" && docker --version
 	@echo "--- Docker Compose ---" && docker compose version
 	@echo "--- NVIDIA Container Toolkit ---" && (nvidia-ctk --version 2>/dev/null || echo "NOT FOUND - install: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html")
 	@echo "--- GPU ---" && (nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo "No NVIDIA GPU detected")
 	@echo "--- Docker GPU Access ---" && (docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi 2>/dev/null | head -4 || echo "FAILED - check NVIDIA Container Toolkit")
-	@echo "--- Render Image ---" && (docker image inspect $(CLIPPER_IMAGE) > /dev/null 2>&1 && echo "OK: $(CLIPPER_IMAGE)" || echo "NOT FOUND - run: make docker-build")
+	@echo "--- Render Image ---" && (docker image inspect $(GLIDEKIT_IMAGE) > /dev/null 2>&1 && echo "OK: $(GLIDEKIT_IMAGE)" || echo "NOT FOUND - run: make docker-build")

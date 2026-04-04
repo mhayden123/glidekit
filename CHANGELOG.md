@@ -62,7 +62,7 @@ This repository does not currently publish versioned release tags, so the older 
 ## 2024-10-04
 
 - Changed: Rebalanced codec defaults after HEVC compatibility feedback; H.264 became the safer default again.
-- Changed: Introduced `auto` as the default file-format mode so the clipper can choose a better codec without forcing users to decide up front.
+- Changed: Introduced `auto` as the default file-format mode so GlideKit can choose a better codec without forcing users to decide up front.
 - Changed: Refined related input copy and format-selection behavior in the prediction interface.
 
 ## 2024-08-08
@@ -113,7 +113,7 @@ This repository does not currently publish versioned release tags, so the older 
 
 ## 2023-09-24
 
-- Added: Ported the project to Cog/Replicate with `predict.py` so the clipper could run as a hosted prediction service.
+- Added: Ported the project to Cog/Replicate with `predict.py` so GlideKit could run as a hosted prediction service.
 - Added: Added a dedicated downloader, notes field, file-size slider, metric toggle, optional workspace support, and a safety timeout.
 - Added: Added initial GPU/NVIDIA direct-encoding and capture options plus early 3D/360 rendering groundwork.
 - Changed: Greatly improved download speed, tuned defaults to reduce stutter, capped FPS, and improved hybrid encoding behavior.

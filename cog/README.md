@@ -1,6 +1,6 @@
 # Replicate.com/Cog Generation
 
-This folder generates Cog build artifacts for running the clipper on Replicate or with local `cog build`.
+This folder generates Cog build artifacts for running GlideKit on Replicate or with local `cog build`.
 
 Current upstream Cog already sets `NVIDIA_DRIVER_CAPABILITIES=all`, so a custom
 Cog fork is no longer required for GPU visibility. We still keep a patched

@@ -22,7 +22,7 @@ services:
 
     volumes:
       # Update this to wherever you want VS Code to mount the folder of your project
-      - ../:/workspace/op-replay-clipper:cached
+      - ../:/workspace/glidekit:cached
       
       # Pass in /mnt too, so we can use it for large data in the future
       - /mnt:/mnt
@@ -39,7 +39,7 @@ services:
     command: /bin/sh -c "while sleep 1000; do :; done"
     build:
       context: ../
-      target: clipper
+      target: glidekit
     shm_size: '1gb'
     # Want to run this in a GPU container? Uncomment the next lines
     # deploy:

@@ -261,4 +261,4 @@ The current intended policy is:
 That is a much healthier long-term shape than either:
 
 - forcing everything through upstream clip code, or
-- fully forking openpilot just for the clipper.
+- fully forking openpilot just for GlideKit.

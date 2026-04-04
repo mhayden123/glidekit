@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo ""
-echo "  OP Replay Clipper"
+echo "  GlideKit"
 echo "  http://localhost:7860"
 echo "  Press Ctrl+C to stop"
 echo ""

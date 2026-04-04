@@ -1,10 +1,10 @@
-# OP Replay Clipper
+# GlideKit
 
 Render and extract video clips from [openpilot](https://github.com/commaai/openpilot) drives recorded on [comma.ai](https://comma.ai) devices. Runs entirely on your own hardware via Docker with GPU acceleration.
 
 ## Desktop App
 
-The easiest way to use the clipper is the **[OP Replay Clipper Desktop App](https://github.com/mhayden123/op-replay-clipper-desktop)**. Download a single installer for your platform and everything is handled automatically.
+The easiest way to use GlideKit is the **[GlideKit Desktop App](https://github.com/mhayden123/glidekit-desktop)**. Download a single installer for your platform and everything is handled automatically.
 
 ## Render Types
 
@@ -54,7 +54,7 @@ make docker-web      # Start web UI at http://localhost:7860
 
 ## Usage
 
-1. Open the web UI at `http://localhost:7860` (or use the [Desktop App](https://github.com/mhayden123/op-replay-clipper-desktop))
+1. Open the web UI at `http://localhost:7860` (or use the [Desktop App](https://github.com/mhayden123/glidekit-desktop))
 2. Choose a download source (Comma Connect or Local SSH)
 3. Paste a Comma Connect URL or pipe-delimited route ID
 4. Select a render type
@@ -63,7 +63,7 @@ make docker-web      # Start web UI at http://localhost:7860
 
 ### URL Formats
 
-The clipper accepts these route URL formats:
+GlideKit accepts these route URL formats:
 
 | Format | Example |
 |--------|---------|
@@ -87,8 +87,8 @@ For routes without Public Access, provide a JWT token from [jwt.comma.ai](https:
 Pre-built images are published to GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/mhayden123/op-replay-clipper-web:latest
-docker pull ghcr.io/mhayden123/op-replay-clipper-render:latest
+docker pull ghcr.io/mhayden123/glidekit-web:latest
+docker pull ghcr.io/mhayden123/glidekit-render:latest
 ```
 
 ## CLI Usage

@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." >/dev/null 2>&1 && pwd -P)"
 DIST_DIR="${DIST_DIR:-${SCRIPT_DIR}/dist}"
-MODEL="${MODEL:-r8.im/nelsonjchen/op-replay-clipper-beta}"
+MODEL="${MODEL:-r8.im/mhayden123/glidekit-beta}"
 COG_BIN="${COG_BIN:-cog}"
 
 find_one() {

@@ -29,7 +29,7 @@ openpilot without carrying a full fork.
 ## 2. openpilot-adjacent rendering/runtime rebuilds
 
 These are not openpilot source patches in-place, but they rebuild or adapt
-external rendering/runtime components that the clipper depends on.
+external rendering/runtime components that GlideKit depends on.
 
 | External target | Local files | Why it is rebuilt or adapted |
 | --- | --- | --- |

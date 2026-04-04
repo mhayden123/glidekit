@@ -4,8 +4,8 @@ This document describes how this repo is currently deployed to Replicate.
 
 It covers:
 
-- staging pushes to `nelsonjchen/op-replay-clipper-beta`
-- production pushes to `nelsonjchen/op-replay-clipper`
+- staging pushes to `mhayden123/glidekit-beta`
+- production pushes to `mhayden123/glidekit`
 - local testing before a push
 - why deploys use a patched Cog runtime
 - how to verify a pushed version before and after promotion
@@ -31,8 +31,8 @@ inputs too early and break the model's public URL-only API.
 
 The two Replicate targets are:
 
-- staging: `r8.im/nelsonjchen/op-replay-clipper-beta`
-- production: `r8.im/nelsonjchen/op-replay-clipper`
+- staging: `r8.im/mhayden123/glidekit-beta`
+- production: `r8.im/mhayden123/glidekit`
 
 The intended workflow is:
 
@@ -82,7 +82,7 @@ For hosted-model testing from your machine without building a local container:
 
 ```bash
 uv run python replicate_run.py \
-  --model 'nelsonjchen/op-replay-clipper-beta:<version>' \
+  --model 'mhayden123/glidekit-beta:<version>' \
   --url 'https://connect.comma.ai/<dongle>/<route>/<start>/<end>' \
   --render-type ui \
   --output ./shared/local-hosted-smoke.mp4
@@ -133,7 +133,7 @@ Hosted-model smoke from the VM:
 
 ```bash
 uv run python replicate_run.py \
-  --model 'nelsonjchen/op-replay-clipper-beta:<version>' \
+  --model 'mhayden123/glidekit-beta:<version>' \
   --url 'https://connect.comma.ai/<dongle>/<route>/<start>/<end>' \
   --render-type ui \
   --output ./shared/gce-hosted-smoke.mp4
@@ -201,7 +201,7 @@ The standard staging deploy is:
 By default, that script targets:
 
 ```text
-r8.im/nelsonjchen/op-replay-clipper-beta
+r8.im/mhayden123/glidekit-beta
 ```
 
 It automatically:
@@ -222,7 +222,7 @@ import os
 import replicate
 
 client = replicate.Client(api_token=os.environ["REPLICATE_API_TOKEN"])
-model = client.models.get("nelsonjchen/op-replay-clipper-beta")
+model = client.models.get("mhayden123/glidekit-beta")
 versions = list(model.versions.list())
 print(versions[0].id)
 PY
@@ -261,7 +261,7 @@ Once staging is good, push the same repo state to production by overriding the
 target model:
 
 ```bash
-MODEL='r8.im/nelsonjchen/op-replay-clipper' \
+MODEL='r8.im/mhayden123/glidekit' \
 ./cog/runtime_patch/push_beta.sh
 ```
 
@@ -278,7 +278,7 @@ import os
 import replicate
 
 client = replicate.Client(api_token=os.environ["REPLICATE_API_TOKEN"])
-model = client.models.get("nelsonjchen/op-replay-clipper")
+model = client.models.get("mhayden123/glidekit")
 versions = list(model.versions.list())
 print(versions[0].id)
 PY
@@ -296,7 +296,7 @@ Example:
 
 ```bash
 uv run python replicate_run.py \
-  --model 'nelsonjchen/op-replay-clipper:<prod-version>' \
+  --model 'mhayden123/glidekit:<prod-version>' \
   --url 'https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105' \
   --render-type ui \
   --file-format auto \
@@ -305,7 +305,7 @@ uv run python replicate_run.py \
 
 ```bash
 uv run python replicate_run.py \
-  --model 'nelsonjchen/op-replay-clipper:<prod-version>' \
+  --model 'mhayden123/glidekit:<prod-version>' \
   --url 'https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105' \
   --render-type ui \
   --file-format hevc \
@@ -314,7 +314,7 @@ uv run python replicate_run.py \
 
 ```bash
 uv run python replicate_run.py \
-  --model 'nelsonjchen/op-replay-clipper:<prod-version>' \
+  --model 'mhayden123/glidekit:<prod-version>' \
   --url 'https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105' \
   --render-type 360 \
   --file-format auto \

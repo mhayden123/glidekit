@@ -32,7 +32,7 @@ class Predictor(BasePredictor):
             default="ui",
         ),
         route: str = Input(
-            description='One full comma connect clip URL (e.g. https://connect.comma.ai/18277b1abce7bbe4/00000029--e1c8705a52/132/144). Public Access must be enabled or a valid JWT Token must be provided. All required files for the selected render type in Comma Connect must be uploaded from device. Please see the Quick Usage section of the README on GitHub at https://github.com/nelsonjchen/op-replay-clipper#quick-usage for instructions on generating an appropriate comma connect URL.',
+            description='One full comma connect clip URL (e.g. https://connect.comma.ai/18277b1abce7bbe4/00000029--e1c8705a52/132/144). Public Access must be enabled or a valid JWT Token must be provided. All required files for the selected render type in Comma Connect must be uploaded from device. Please see the Quick Usage section of the README on GitHub at https://github.com/mhayden123/glidekit#usage for instructions on generating an appropriate comma connect URL.',
             default="https://connect.comma.ai/a2a0ccea32023010/1690488131496/1690488151496",
         ),
         smearAmount: int = Input(

@@ -92,8 +92,8 @@ def test_resolve_model_defaults_to_latest_beta_alias() -> None:
 
 
 def test_resolve_model_preserves_explicit_model() -> None:
-    model, explicit = replicate_run.resolve_model("nelsonjchen/op-replay-clipper-beta:abc123")
-    assert model == "nelsonjchen/op-replay-clipper-beta:abc123"
+    model, explicit = replicate_run.resolve_model("mhayden123/glidekit:abc123")
+    assert model == "mhayden123/glidekit:abc123"
     assert explicit is True
 
 

@@ -1,8 +1,8 @@
 # Prod Readiness Checklist
 
 Use this checklist before promoting the current Replicate staging model
-(`nelsonjchen/op-replay-clipper-beta`) to the production model
-(`nelsonjchen/op-replay-clipper`).
+(`mhayden123/glidekit-beta`) to the production model
+(`mhayden123/glidekit`).
 
 The goal is not to re-litigate the entire repo. The goal is to verify the small
 set of behaviors that have actually been risky in practice:
@@ -38,8 +38,8 @@ regression.
 Set these once before running the matrix:
 
 ```bash
-export STAGING_MODEL='nelsonjchen/op-replay-clipper-beta:<version>'
-export PROD_MODEL='nelsonjchen/op-replay-clipper:<version>'
+export STAGING_MODEL='mhayden123/glidekit-beta:<version>'
+export PROD_MODEL='mhayden123/glidekit:<version>'
 export ROUTE_URL='https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105'
 export JWT_TOKEN='<valid jwt>'
 ```

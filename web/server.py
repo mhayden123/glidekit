@@ -1,4 +1,4 @@
-"""FastAPI backend for the local Docker-based op-replay-clipper web UI."""
+"""FastAPI backend for the local Docker-based GlideKit web UI."""
 
 from __future__ import annotations
 
@@ -23,11 +23,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-app = FastAPI(title="OP Replay Clipper")
-log = logging.getLogger("clipper.scan")
+app = FastAPI(title="GlideKit")
+log = logging.getLogger("glidekit.scan")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
-CLIPPER_IMAGE = os.environ.get("CLIPPER_IMAGE", "op-replay-clipper-render")
+GLIDEKIT_IMAGE = os.environ.get("GLIDEKIT_IMAGE", "glidekit-render")
 # Host path used for `docker run -v` mounts (must be a real host filesystem path).
 SHARED_HOST_DIR = os.environ.get("SHARED_HOST_DIR", os.environ.get("SHARED_DIR", "/app/shared"))
 # Local path inside the web container where the same volume is mounted.
@@ -150,7 +150,7 @@ def _build_docker_cmd(job: Job, req: ClipRequestBody) -> list[str]:
         cmd.extend(["-v", f"{host_ssh_dir}:/root/.ssh:ro"])
 
     cmd.extend([
-        CLIPPER_IMAGE,
+        GLIDEKIT_IMAGE,
         req.render_type,
         req.route,
         "-o", output_inside,
@@ -334,11 +334,11 @@ async def index() -> HTMLResponse:
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
     docker_ok = shutil.which("docker") is not None
-    image_ok = await _docker_image_exists(CLIPPER_IMAGE) if docker_ok else False
+    image_ok = await _docker_image_exists(GLIDEKIT_IMAGE) if docker_ok else False
     return {
         "docker": docker_ok,
         "image": image_ok,
-        "image_name": CLIPPER_IMAGE,
+        "image_name": GLIDEKIT_IMAGE,
     }
 
 
@@ -497,10 +497,10 @@ async def create_clip(body: ClipRequestBody) -> dict[str, Any]:
     if body.download_source == "ssh" and not body.device_ip.strip():
         raise HTTPException(status_code=422, detail="Device IP address is required for SSH downloads.")
 
-    if not await _docker_image_exists(CLIPPER_IMAGE):
+    if not await _docker_image_exists(GLIDEKIT_IMAGE):
         raise HTTPException(
             status_code=503,
-            detail=f"Render image '{CLIPPER_IMAGE}' not found. Run './install.sh' or 'make docker-build' first.",
+            detail=f"Render image '{GLIDEKIT_IMAGE}' not found. Run './install.sh' or 'make docker-build' first.",
         )
 
     job_id = uuid.uuid4().hex[:12]

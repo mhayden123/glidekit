@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OP Replay Clipper — Local Docker Setup
+# GlideKit — Local Docker Setup
 # Checks prerequisites, builds Docker images, and prepares the launcher.
 
-REPO_URL="https://github.com/mhayden123/op-replay-clipper.git"
+REPO_URL="https://github.com/mhayden123/glidekit.git"
 BRANCH="claude/local-docker-rendering-Cb1Is"
-RENDER_IMAGE="op-replay-clipper-render"
+RENDER_IMAGE="glidekit-render"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -88,7 +88,7 @@ if [ -f "docker-compose.yml" ] && [ -f "Dockerfile" ]; then
     PROJECT_DIR="$(pwd)"
 else
     info "Cloning repository..."
-    CLONE_DIR="${HOME}/op-replay-clipper"
+    CLONE_DIR="${HOME}/glidekit"
     if [ -d "$CLONE_DIR" ]; then
         info "Directory $CLONE_DIR already exists, pulling latest..."
         cd "$CLONE_DIR"

@@ -52,12 +52,12 @@ COG_BIN=/path/to/cog \
 By default this pushes to:
 
 ```text
-r8.im/nelsonjchen/op-replay-clipper-beta
+r8.im/mhayden123/glidekit-beta
 ```
 
 Optional environment variables:
 
-- `MODEL=r8.im/nelsonjchen/op-replay-clipper-beta`
+- `MODEL=r8.im/mhayden123/glidekit-beta`
 - `DIST_DIR=/abs/path/to/wheels`
 - `COG_SDK_WHEEL=/abs/path/to/cog-....whl`
 - `COGLET_WHEEL=/abs/path/to/coglet-....whl`

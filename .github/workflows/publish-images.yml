@@ -11,8 +11,8 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  RENDER_IMAGE: ghcr.io/${{ github.repository_owner }}/op-replay-clipper-render
-  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/op-replay-clipper-web
+  RENDER_IMAGE: ghcr.io/${{ github.repository_owner }}/glidekit-render
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/glidekit-web
 
 jobs:
   publish-web:
