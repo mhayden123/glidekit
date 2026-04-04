@@ -82,18 +82,29 @@ def _detect_gpu() -> bool:
     return _has_gpu
 
 
+_wsl_cached: bool | None = None
+
+
 def _detect_wsl() -> bool:
-    """Detect if WSL is available on Windows."""
+    """Detect if WSL is available on Windows. Cached after first check."""
+    global _wsl_cached
     if not IS_WINDOWS:
         return False
+    if _wsl_cached is not None:
+        return _wsl_cached
     try:
+        # Check if wsl.exe exists first (instant, avoids hanging)
+        if not shutil.which("wsl.exe") and not shutil.which("wsl"):
+            _wsl_cached = False
+            return False
         result = _subprocess.run(
             ["wsl.exe", "--list", "--verbose"],
             capture_output=True, text=True, timeout=5,
         )
-        return result.returncode == 0 and "Running" in result.stdout
-    except (FileNotFoundError, _subprocess.TimeoutExpired):
-        return False
+        _wsl_cached = result.returncode == 0 and "Running" in result.stdout
+    except (FileNotFoundError, _subprocess.TimeoutExpired, OSError):
+        _wsl_cached = False
+    return _wsl_cached
 
 
 def _resolve_uv() -> str:
