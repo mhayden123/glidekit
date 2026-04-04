@@ -1,4 +1,4 @@
-"""FastAPI backend for the native (dockerless) op-replay-clipper."""
+"""FastAPI backend for the OP Replay Clipper."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ OPENPILOT_RENDER_TYPES = {"ui", "ui-alt", "driver-debug", "forward_upon_wide", "
 STANDALONE_RENDER_TYPES = {"forward", "wide", "driver", "360"}
 
 # ---------------------------------------------------------------------------
-# Native configuration (replaces Docker env vars)
+# Configuration
 # ---------------------------------------------------------------------------
 
 # Base directory for all clipper data.
@@ -244,7 +244,7 @@ class JobResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Native clip.py invocation (replaces _build_docker_cmd + _run_container)
+# clip.py invocation
 # ---------------------------------------------------------------------------
 
 def _build_clip_cmd(job: Job, req: ClipRequestBody) -> tuple[list[str], str | None]:
@@ -563,7 +563,7 @@ def _detect_subnet() -> str | None:
         log.info("HOST_LAN_IP=%s", host_lan_ip)
         return host_lan_ip.rsplit(".", 1)[0] + "."
 
-    # Native: detect via UDP route (no Docker host.docker.internal needed)
+    # Detect via UDP route to determine LAN interface
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("8.8.8.8", 53))
